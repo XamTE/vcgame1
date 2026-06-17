@@ -19,7 +19,7 @@ body {
 }
 
 .game-card {
-  width: min(100%, 820px);
+  width: min(100%, 900px);
   padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
@@ -53,10 +53,11 @@ p {
   justify-content: flex-end;
   gap: 10px;
   flex-shrink: 0;
+  max-width: 470px;
 }
 
 .status-box {
-  min-width: 92px;
+  min-width: 88px;
   padding: 12px 14px;
   border-radius: 16px;
   text-align: center;
@@ -78,6 +79,14 @@ p {
 
 .level-status strong {
   color: #ffe58f;
+}
+
+.life-status strong {
+  color: #ff8da1;
+}
+
+.shield-status strong {
+  color: #8fd6ff;
 }
 
 .canvas-area {
@@ -124,7 +133,7 @@ p {
 }
 
 .overlay p {
-  max-width: 320px;
+  max-width: 340px;
 }
 
 .record-form {
@@ -308,7 +317,7 @@ button:active {
   color: #ffffff;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .game-card {
     padding: 18px;
   }
@@ -323,10 +332,12 @@ button:active {
 
   .status-panel {
     width: 100%;
+    max-width: none;
+    justify-content: stretch;
   }
 
   .status-box {
-    flex: 1;
+    flex: 1 1 30%;
   }
 
   .record-row {
