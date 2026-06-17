@@ -107,8 +107,9 @@ p {
   backdrop-filter: blur(3px);
 }
 
-.overlay.hidden {
-  display: none;
+.overlay.hidden,
+.hidden {
+  display: none !important;
 }
 
 .overlay h2 {
@@ -118,6 +119,46 @@ p {
 
 .overlay p {
   max-width: 320px;
+}
+
+.record-form {
+  width: min(100%, 360px);
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.record-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.record-row {
+  display: flex;
+  gap: 8px;
+}
+
+.record-row input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 14px;
+  color: #10131a;
+  background: #ffffff;
+  font-size: 15px;
+  outline: none;
+}
+
+.save-message {
+  min-height: 22px;
+  margin-top: 8px;
+  color: #c8f7d0;
+  font-size: 13px;
 }
 
 button {
@@ -130,6 +171,7 @@ button {
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
 }
 
 button:hover {
@@ -139,6 +181,112 @@ button:hover {
 
 button:active {
   transform: translateY(0);
+}
+
+.secondary-button {
+  padding: 10px 16px;
+  color: #f5f7fb;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+}
+
+.ranking-panel {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.ranking-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.ranking-header p {
+  font-size: 13px;
+}
+
+.ranking-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.rank-number {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  color: #10131a;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.rank-main {
+  min-width: 0;
+}
+
+.rank-name {
+  display: block;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-meta {
+  display: block;
+  margin-top: 3px;
+  color: #aeb8ce;
+  font-size: 12px;
+}
+
+.rank-score {
+  text-align: right;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.rank-result {
+  display: block;
+  margin-bottom: 2px;
+  color: #b7c0d4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty-ranking {
+  padding: 16px;
+  border-radius: 14px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 14px;
 }
 
 .game-footer {
@@ -173,5 +321,23 @@ button:active {
 
   .status-box {
     flex: 1;
+  }
+
+  .record-row {
+    flex-direction: column;
+  }
+
+  .ranking-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ranking-item {
+    grid-template-columns: 38px 1fr;
+  }
+
+  .rank-score {
+    grid-column: 2 / 3;
+    text-align: left;
   }
 }

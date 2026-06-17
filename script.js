@@ -7,9 +7,17 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMessage = document.getElementById('overlayMessage');
 const startButton = document.getElementById('startButton');
+const nicknameForm = document.getElementById('nicknameForm');
+const nicknameInput = document.getElementById('nicknameInput');
+const saveMessage = document.getElementById('saveMessage');
+const rankingList = document.getElementById('rankingList');
+const emptyRankingText = document.getElementById('emptyRankingText');
+const clearRankingButton = document.getElementById('clearRankingButton');
 
 const GAME_TIME = 30;
 const PLAYER_SPEED = 6;
+const RANKING_STORAGE_KEY = 'dodgeGameRankings';
+const MAX_RANKING_COUNT = 10;
 
 const sounds = {
   dodge: new Audio('sounds/dodge.wav'),
@@ -33,6 +41,8 @@ let animationId;
 let lastTimestamp;
 let gameState;
 let soundUnlocked = false;
+let pendingRecord = null;
+let recordSaved = false;
 
 function resetGame() {
   player = {
@@ -55,7 +65,10 @@ function resetGame() {
   obstacleSpawnInterval = 0.85;
   lastTimestamp = 0;
   gameState = 'ready';
+  pendingRecord = null;
+  recordSaved = false;
 
+  hideNicknameForm();
   updateStatus();
   drawGame();
 }
@@ -74,6 +87,14 @@ function endGame(result) {
   gameState = result;
   cancelAnimationFrame(animationId);
 
+  pendingRecord = {
+    result,
+    score,
+    survivalTime: Number(elapsedTime.toFixed(1)),
+    createdAt: new Date().toISOString()
+  };
+  recordSaved = false;
+
   if (result === 'win') {
     playSound('win');
     overlayTitle.textContent = '승리!';
@@ -84,6 +105,7 @@ function endGame(result) {
     overlayMessage.textContent = `장애물에 충돌했습니다. 최종 점수: ${score}`;
   }
 
+  showNicknameForm();
   startButton.textContent = '다시 시작';
   overlay.classList.remove('hidden');
 }
@@ -263,6 +285,161 @@ function unlockSounds() {
   soundUnlocked = true;
 }
 
+function showNicknameForm() {
+  nicknameForm.classList.remove('hidden');
+  nicknameInput.value = '';
+  saveMessage.textContent = '';
+
+  requestAnimationFrame(() => {
+    nicknameInput.focus();
+  });
+}
+
+function hideNicknameForm() {
+  nicknameForm.classList.add('hidden');
+  nicknameInput.value = '';
+  saveMessage.textContent = '';
+}
+
+function saveCurrentRecord(event) {
+  event.preventDefault();
+
+  if (!pendingRecord || recordSaved) return;
+
+  const nickname = sanitizeNickname(nicknameInput.value);
+  const newRecord = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    nickname,
+    result: pendingRecord.result,
+    score: pendingRecord.score,
+    survivalTime: pendingRecord.survivalTime,
+    createdAt: pendingRecord.createdAt
+  };
+
+  const rankings = getRankings();
+  rankings.push(newRecord);
+
+  const sortedRankings = sortRankings(rankings).slice(0, MAX_RANKING_COUNT);
+  setRankings(sortedRankings);
+
+  recordSaved = true;
+  nicknameForm.classList.add('hidden');
+  saveMessage.textContent = '기록이 저장되었습니다.';
+  renderRankings();
+}
+
+function sanitizeNickname(value) {
+  const nickname = value.trim().replace(/\s+/g, ' ');
+
+  if (!nickname) {
+    return '익명 플레이어';
+  }
+
+  return nickname.slice(0, 12);
+}
+
+function getRankings() {
+  try {
+    const savedRankings = localStorage.getItem(RANKING_STORAGE_KEY);
+    return savedRankings ? JSON.parse(savedRankings) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function setRankings(rankings) {
+  try {
+    localStorage.setItem(RANKING_STORAGE_KEY, JSON.stringify(rankings));
+  } catch (error) {
+    saveMessage.textContent = '브라우저 저장소 문제로 기록 저장에 실패했습니다.';
+  }
+}
+
+function clearRankings() {
+  const shouldClear = confirm('저장된 플레이 로그를 모두 삭제할까요?');
+
+  if (!shouldClear) return;
+
+  localStorage.removeItem(RANKING_STORAGE_KEY);
+  renderRankings();
+}
+
+function sortRankings(rankings) {
+  return [...rankings].sort((a, b) => {
+    const resultDiff = getResultPriority(b.result) - getResultPriority(a.result);
+    if (resultDiff !== 0) return resultDiff;
+
+    const scoreDiff = b.score - a.score;
+    if (scoreDiff !== 0) return scoreDiff;
+
+    const timeDiff = b.survivalTime - a.survivalTime;
+    if (timeDiff !== 0) return timeDiff;
+
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+}
+
+function getResultPriority(result) {
+  return result === 'win' ? 1 : 0;
+}
+
+function renderRankings() {
+  const rankings = sortRankings(getRankings()).slice(0, MAX_RANKING_COUNT);
+
+  rankingList.innerHTML = '';
+  emptyRankingText.classList.toggle('hidden', rankings.length > 0);
+
+  rankings.forEach((record, index) => {
+    const item = document.createElement('li');
+    item.className = 'ranking-item';
+
+    const rankNumber = document.createElement('span');
+    rankNumber.className = 'rank-number';
+    rankNumber.textContent = index + 1;
+
+    const rankMain = document.createElement('div');
+    rankMain.className = 'rank-main';
+
+    const rankName = document.createElement('span');
+    rankName.className = 'rank-name';
+    rankName.textContent = record.nickname;
+
+    const rankMeta = document.createElement('span');
+    rankMeta.className = 'rank-meta';
+    rankMeta.textContent = `${formatDate(record.createdAt)} · 생존 ${Number(record.survivalTime).toFixed(1)}초`;
+
+    const rankScore = document.createElement('div');
+    rankScore.className = 'rank-score';
+
+    const rankResult = document.createElement('span');
+    rankResult.className = 'rank-result';
+    rankResult.textContent = record.result === 'win' ? '승리' : '패배';
+
+    const scoreValue = document.createElement('span');
+    scoreValue.textContent = `${record.score}점`;
+
+    rankMain.append(rankName, rankMeta);
+    rankScore.append(rankResult, scoreValue);
+    item.append(rankNumber, rankMain, rankScore);
+    rankingList.appendChild(item);
+  });
+}
+
+function formatDate(dateText) {
+  const date = new Date(dateText);
+
+  if (Number.isNaN(date.getTime())) {
+    return '날짜 없음';
+  }
+
+  return date.toLocaleString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 function randomNumber(min, max) {
   return Math.random() * (max - min) + min;
 }
@@ -294,5 +471,8 @@ window.addEventListener('keyup', (event) => {
 });
 
 startButton.addEventListener('click', startGame);
+nicknameForm.addEventListener('submit', saveCurrentRecord);
+clearRankingButton.addEventListener('click', clearRankings);
 
 resetGame();
+renderRankings();
