@@ -11,6 +11,17 @@ const startButton = document.getElementById('startButton');
 const GAME_TIME = 30;
 const PLAYER_SPEED = 6;
 
+const sounds = {
+  dodge: new Audio('sounds/dodge.wav'),
+  win: new Audio('sounds/win.wav'),
+  lose: new Audio('sounds/lose.wav')
+};
+
+Object.values(sounds).forEach((sound) => {
+  sound.preload = 'auto';
+  sound.volume = 0.55;
+});
+
 let player;
 let obstacles;
 let keys;
@@ -21,6 +32,7 @@ let obstacleSpawnInterval;
 let animationId;
 let lastTimestamp;
 let gameState;
+let soundUnlocked = false;
 
 function resetGame() {
   player = {
@@ -50,6 +62,8 @@ function resetGame() {
 
 function startGame() {
   cancelAnimationFrame(animationId);
+  unlockSounds();
+  stopAllSounds();
   resetGame();
   gameState = 'playing';
   overlay.classList.add('hidden');
@@ -61,9 +75,11 @@ function endGame(result) {
   cancelAnimationFrame(animationId);
 
   if (result === 'win') {
+    playSound('win');
     overlayTitle.textContent = '승리!';
     overlayMessage.textContent = `30초 생존 성공. 최종 점수: ${score}`;
   } else {
+    playSound('lose');
     overlayTitle.textContent = '패배';
     overlayMessage.textContent = `장애물에 충돌했습니다. 최종 점수: ${score}`;
   }
@@ -106,6 +122,7 @@ function updateGame(deltaTime) {
   obstacles = obstacles.filter((obstacle) => {
     if (obstacle.y > canvas.height) {
       score += 1;
+      playSound('dodge');
       return false;
     }
     return true;
@@ -216,6 +233,34 @@ function updateStatus() {
   const remainingTime = Math.max(0, GAME_TIME - elapsedTime);
   timeText.textContent = remainingTime.toFixed(1);
   scoreText.textContent = score;
+}
+
+function playSound(soundName) {
+  const sound = sounds[soundName];
+
+  if (!sound) return;
+
+  sound.currentTime = 0;
+  sound.play().catch(() => {
+    // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
+  });
+}
+
+function stopAllSounds() {
+  Object.values(sounds).forEach((sound) => {
+    sound.pause();
+    sound.currentTime = 0;
+  });
+}
+
+function unlockSounds() {
+  if (soundUnlocked) return;
+
+  Object.values(sounds).forEach((sound) => {
+    sound.load();
+  });
+
+  soundUnlocked = true;
 }
 
 function randomNumber(min, max) {
