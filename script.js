@@ -3,6 +3,7 @@ const ctx = canvas.getContext('2d');
 
 const timeText = document.getElementById('timeText');
 const scoreText = document.getElementById('scoreText');
+const levelText = document.getElementById('levelText');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMessage = document.getElementById('overlayMessage');
@@ -18,6 +19,51 @@ const GAME_TIME = 30;
 const PLAYER_SPEED = 6;
 const RANKING_STORAGE_KEY = 'dodgeGameRankings';
 const MAX_RANKING_COUNT = 10;
+
+const LEVELS = [
+  {
+    level: 1,
+    startTime: 0,
+    spawnInterval: 0.85,
+    speedMin: 185,
+    speedMax: 300,
+    widthMin: 34,
+    widthMax: 72,
+    heightMin: 22,
+    heightMax: 44,
+    extraSpawnChance: 0,
+    background: '#101723',
+    obstacleColor: '#ff4d5e'
+  },
+  {
+    level: 2,
+    startTime: 10,
+    spawnInterval: 0.6,
+    speedMin: 235,
+    speedMax: 375,
+    widthMin: 40,
+    widthMax: 88,
+    heightMin: 26,
+    heightMax: 52,
+    extraSpawnChance: 0.18,
+    background: '#15162a',
+    obstacleColor: '#ff8a3d'
+  },
+  {
+    level: 3,
+    startTime: 20,
+    spawnInterval: 0.42,
+    speedMin: 295,
+    speedMax: 460,
+    widthMin: 46,
+    widthMax: 104,
+    heightMin: 30,
+    heightMax: 60,
+    extraSpawnChance: 0.32,
+    background: '#201323',
+    obstacleColor: '#ff3dd8'
+  }
+];
 
 const sounds = {
   dodge: new Audio('sounds/dodge.wav'),
@@ -36,10 +82,11 @@ let keys;
 let score;
 let elapsedTime;
 let obstacleSpawnTimer;
-let obstacleSpawnInterval;
 let animationId;
 let lastTimestamp;
 let gameState;
+let currentLevel;
+let maxReachedLevel;
 let soundUnlocked = false;
 let pendingRecord = null;
 let recordSaved = false;
@@ -62,9 +109,10 @@ function resetGame() {
   score = 0;
   elapsedTime = 0;
   obstacleSpawnTimer = 0;
-  obstacleSpawnInterval = 0.85;
   lastTimestamp = 0;
   gameState = 'ready';
+  currentLevel = 1;
+  maxReachedLevel = 1;
   pendingRecord = null;
   recordSaved = false;
 
@@ -90,6 +138,7 @@ function endGame(result) {
   pendingRecord = {
     result,
     score,
+    maxLevel: maxReachedLevel,
     survivalTime: Number(elapsedTime.toFixed(1)),
     createdAt: new Date().toISOString()
   };
@@ -98,11 +147,11 @@ function endGame(result) {
   if (result === 'win') {
     playSound('win');
     overlayTitle.textContent = '승리!';
-    overlayMessage.textContent = `30초 생존 성공. 최종 점수: ${score}`;
+    overlayMessage.textContent = `3단계까지 버티고 30초 생존 성공. 최종 점수: ${score}`;
   } else {
     playSound('lose');
     overlayTitle.textContent = '패배';
-    overlayMessage.textContent = `장애물에 충돌했습니다. 최종 점수: ${score}`;
+    overlayMessage.textContent = `${maxReachedLevel}단계에서 장애물에 충돌했습니다. 최종 점수: ${score}`;
   }
 
   showNicknameForm();
@@ -127,13 +176,18 @@ function updateGame(deltaTime) {
   elapsedTime += deltaTime;
   obstacleSpawnTimer += deltaTime;
 
+  updateCurrentLevel();
   movePlayer();
 
-  const difficultyBonus = Math.min(elapsedTime / 30, 1.2);
-  const currentSpawnInterval = Math.max(0.32, obstacleSpawnInterval - difficultyBonus * 0.35);
+  const levelConfig = getLevelConfig(currentLevel);
 
-  if (obstacleSpawnTimer >= currentSpawnInterval) {
-    spawnObstacle();
+  if (obstacleSpawnTimer >= levelConfig.spawnInterval) {
+    spawnObstacle(levelConfig);
+
+    if (Math.random() < levelConfig.extraSpawnChance) {
+      spawnObstacle(levelConfig);
+    }
+
     obstacleSpawnTimer = 0;
   }
 
@@ -143,7 +197,7 @@ function updateGame(deltaTime) {
 
   obstacles = obstacles.filter((obstacle) => {
     if (obstacle.y > canvas.height) {
-      score += 1;
+      score += obstacle.level;
       playSound('dodge');
       return false;
     }
@@ -158,12 +212,27 @@ function updateGame(deltaTime) {
 
   if (elapsedTime >= GAME_TIME) {
     elapsedTime = GAME_TIME;
+    currentLevel = 3;
+    maxReachedLevel = 3;
     updateStatus();
     endGame('win');
     return;
   }
 
   updateStatus();
+}
+
+function updateCurrentLevel() {
+  const levelConfig = LEVELS.reduce((selectedLevel, level) => {
+    return elapsedTime >= level.startTime ? level : selectedLevel;
+  }, LEVELS[0]);
+
+  currentLevel = levelConfig.level;
+  maxReachedLevel = Math.max(maxReachedLevel, currentLevel);
+}
+
+function getLevelConfig(level) {
+  return LEVELS.find((levelConfig) => levelConfig.level === level) || LEVELS[0];
 }
 
 function movePlayer() {
@@ -178,20 +247,20 @@ function movePlayer() {
   player.x = clamp(player.x, 0, canvas.width - player.width);
 }
 
-function spawnObstacle() {
-  const minWidth = 34;
-  const maxWidth = 76;
-  const width = randomNumber(minWidth, maxWidth);
-  const height = randomNumber(22, 48);
+function spawnObstacle(levelConfig) {
+  const width = randomNumber(levelConfig.widthMin, levelConfig.widthMax);
+  const height = randomNumber(levelConfig.heightMin, levelConfig.heightMax);
   const x = randomNumber(0, canvas.width - width);
-  const speed = randomNumber(185, 310) + elapsedTime * 6;
+  const speed = randomNumber(levelConfig.speedMin, levelConfig.speedMax);
 
   obstacles.push({
     x,
     y: -height,
     width,
     height,
-    speed
+    speed,
+    level: levelConfig.level,
+    color: levelConfig.obstacleColor
   });
 }
 
@@ -209,10 +278,13 @@ function drawGame() {
   drawBackground();
   drawPlayer();
   drawObstacles();
+  drawLevelGuide();
 }
 
 function drawBackground() {
-  ctx.fillStyle = '#101723';
+  const levelConfig = getLevelConfig(currentLevel);
+
+  ctx.fillStyle = levelConfig.background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
@@ -243,7 +315,7 @@ function drawPlayer() {
 
 function drawObstacles() {
   obstacles.forEach((obstacle) => {
-    ctx.fillStyle = '#ff4d5e';
+    ctx.fillStyle = obstacle.color;
     ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
@@ -251,10 +323,28 @@ function drawObstacles() {
   });
 }
 
+function drawLevelGuide() {
+  const levelWidth = canvas.width / 3;
+
+  LEVELS.forEach((levelConfig, index) => {
+    const x = index * levelWidth;
+    const isActive = levelConfig.level === currentLevel;
+
+    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.08)';
+    ctx.fillRect(x + 8, 12, levelWidth - 16, 8);
+
+    ctx.fillStyle = isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.45)';
+    ctx.font = '700 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${levelConfig.level}단계`, x + levelWidth / 2, 38);
+  });
+}
+
 function updateStatus() {
   const remainingTime = Math.max(0, GAME_TIME - elapsedTime);
   timeText.textContent = remainingTime.toFixed(1);
   scoreText.textContent = score;
+  levelText.textContent = currentLevel;
 }
 
 function playSound(soundName) {
@@ -312,6 +402,7 @@ function saveCurrentRecord(event) {
     nickname,
     result: pendingRecord.result,
     score: pendingRecord.score,
+    maxLevel: pendingRecord.maxLevel,
     survivalTime: pendingRecord.survivalTime,
     createdAt: pendingRecord.createdAt
   };
@@ -372,6 +463,9 @@ function sortRankings(rankings) {
     const scoreDiff = b.score - a.score;
     if (scoreDiff !== 0) return scoreDiff;
 
+    const levelDiff = getRecordLevel(b) - getRecordLevel(a);
+    if (levelDiff !== 0) return levelDiff;
+
     const timeDiff = b.survivalTime - a.survivalTime;
     if (timeDiff !== 0) return timeDiff;
 
@@ -381,6 +475,10 @@ function sortRankings(rankings) {
 
 function getResultPriority(result) {
   return result === 'win' ? 1 : 0;
+}
+
+function getRecordLevel(record) {
+  return Number(record.maxLevel || record.level || 1);
 }
 
 function renderRankings() {
@@ -406,7 +504,7 @@ function renderRankings() {
 
     const rankMeta = document.createElement('span');
     rankMeta.className = 'rank-meta';
-    rankMeta.textContent = `${formatDate(record.createdAt)} · 생존 ${Number(record.survivalTime).toFixed(1)}초`;
+    rankMeta.textContent = `${formatDate(record.createdAt)} · ${getRecordLevel(record)}단계 도달 · 생존 ${Number(record.survivalTime).toFixed(1)}초`;
 
     const rankScore = document.createElement('div');
     rankScore.className = 'rank-score';

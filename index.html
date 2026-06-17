@@ -12,7 +12,7 @@
       <header class="game-header">
         <div>
           <h1>피하기 게임</h1>
-          <p>떨어지는 장애물을 피해서 30초 동안 버티세요.</p>
+          <p>떨어지는 장애물을 피해서 30초 동안 버티세요. 10초마다 난이도가 상승합니다.</p>
         </div>
 
         <div class="status-panel" aria-label="게임 상태">
@@ -24,6 +24,10 @@
             <span>점수</span>
             <strong id="scoreText">0</strong>
           </div>
+          <div class="status-box level-status">
+            <span>현재 단계</span>
+            <strong id="levelText">1</strong>
+          </div>
         </div>
       </header>
 
@@ -32,7 +36,7 @@
 
         <div id="overlay" class="overlay">
           <h2 id="overlayTitle">피하기 게임</h2>
-          <p id="overlayMessage">방향키 ← → 로 이동합니다.</p>
+          <p id="overlayMessage">방향키 ← → 로 이동합니다. 1단계부터 시작해 10초마다 2단계, 3단계로 올라갑니다.</p>
 
           <form id="nicknameForm" class="record-form hidden">
             <label for="nicknameInput">닉네임을 남겨주세요</label>
@@ -68,6 +72,7 @@
 
       <footer class="game-footer">
         <p><strong>조작:</strong> 방향키 ← →</p>
+        <p><strong>난이도:</strong> 1단계 → 2단계 → 3단계</p>
         <p><strong>승리:</strong> 30초 생존 / <strong>패배:</strong> 장애물 충돌</p>
       </footer>
     </section>
