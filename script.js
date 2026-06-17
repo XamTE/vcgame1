@@ -29,84 +29,81 @@ const PHASES = [
     level: 1,
     label: '1',
     startTime: 0,
-    spawnInterval: 0.85,
-    speedMin: 185,
-    speedMax: 300,
-    widthMin: 34,
-    widthMax: 72,
-    heightMin: 22,
-    heightMax: 44,
+    spawnInterval: 0.95,
+    speedMin: 160,
+    speedMax: 260,
+    widthMin: 32,
+    widthMax: 64,
+    heightMin: 20,
+    heightMax: 40,
     extraSpawnChance: 0,
-    itemSpawnInterval: 5.8,
-    itemSpawnChance: 0.52,
+    itemSpawnInterval: 5.6,
+    itemSpawnChance: 0.54,
     background: '#101723',
     obstacleColor: '#ff4d5e',
     obstacleWeights: {
       normal: 1,
       glitch: 0,
-      wave: 0,
-      diagonal: 0
+      wave: 0
     },
     itemWeights: {
-      shield: 0.38,
-      heal: 0.36,
-      poison: 0.26
+      shield: 0.39,
+      heal: 0.38,
+      poison: 0.23
     }
   },
   {
     level: 2,
     label: '2',
     startTime: 10,
-    spawnInterval: 0.6,
-    speedMin: 235,
-    speedMax: 375,
-    widthMin: 40,
-    widthMax: 88,
-    heightMin: 26,
-    heightMax: 52,
-    extraSpawnChance: 0.18,
-    itemSpawnInterval: 5.2,
-    itemSpawnChance: 0.48,
+    spawnInterval: 0.78,
+    speedMin: 190,
+    speedMax: 320,
+    widthMin: 34,
+    widthMax: 72,
+    heightMin: 22,
+    heightMax: 44,
+    extraSpawnChance: 0.08,
+    itemSpawnInterval: 5.3,
+    itemSpawnChance: 0.52,
     background: '#15162a',
     obstacleColor: '#ff8a3d',
     obstacleWeights: {
-      normal: 0.62,
-      glitch: 0.1,
-      wave: 0.16,
-      diagonal: 0.12
+      normal: 0.74,
+      glitch: 0,
+      wave: 0.26
     },
     itemWeights: {
-      shield: 0.34,
-      heal: 0.32,
-      poison: 0.34
+      shield: 0.36,
+      heal: 0.36,
+      poison: 0.28
     }
   },
   {
     level: 3,
     label: '3',
     startTime: 20,
-    spawnInterval: 0.42,
-    speedMin: 295,
-    speedMax: 460,
-    widthMin: 46,
-    widthMax: 104,
-    heightMin: 30,
-    heightMax: 60,
-    extraSpawnChance: 0.32,
-    itemSpawnInterval: 4.8,
-    itemSpawnChance: 0.44,
+    spawnInterval: 0.62,
+    speedMin: 230,
+    speedMax: 370,
+    widthMin: 38,
+    widthMax: 86,
+    heightMin: 24,
+    heightMax: 50,
+    extraSpawnChance: 0.15,
+    itemSpawnInterval: 5.0,
+    itemSpawnChance: 0.48,
     background: '#201323',
     obstacleColor: '#ff3dd8',
     obstacleWeights: {
-      normal: 0.46,
-      glitch: 0.17,
-      wave: 0.19,
-      diagonal: 0.18
+      normal: 0.55,
+      glitch: 0.18,
+      wave: 0.27
     },
     itemWeights: {
-      shield: 0.31,
-      heal: 0.29,
-      poison: 0.4
+      shield: 0.34,
+      heal: 0.33,
+      poison: 0.33
     }
   }
 ];
@@ -325,7 +322,7 @@ function updateObstacleSpawning() {
   }
 
   const infiniteBonusSpawnChance = currentLevel === 4
-    ? clamp((elapsedTime - INFINITE_MODE_START_TIME) / 120, 0, 0.35)
+    ? clamp((elapsedTime - INFINITE_MODE_START_TIME) / 240, 0, 0.22)
     : 0;
 
   if (Math.random() < infiniteBonusSpawnChance) {
@@ -353,15 +350,6 @@ function updateObstacles(deltaTime) {
     if (obstacle.type === 'wave') {
       obstacle.x = obstacle.baseX + Math.sin(obstacle.age * obstacle.waveFrequency + obstacle.wavePhase) * obstacle.waveAmplitude;
       obstacle.x = clamp(obstacle.x, 0, canvas.width - obstacle.width);
-    }
-
-    if (obstacle.type === 'diagonal') {
-      obstacle.x += obstacle.horizontalSpeed * deltaTime;
-
-      if (obstacle.x <= 0 || obstacle.x + obstacle.width >= canvas.width) {
-        obstacle.horizontalSpeed *= -1;
-        obstacle.x = clamp(obstacle.x, 0, canvas.width - obstacle.width);
-      }
     }
 
     if (obstacle.type === 'glitch' && !obstacle.teleported && obstacle.y >= obstacle.teleportY) {
@@ -507,10 +495,6 @@ function spawnObstacle(phaseConfig) {
     obstacle.wavePhase = randomNumber(0, Math.PI * 2);
   }
 
-  if (type === 'diagonal') {
-    obstacle.horizontalSpeed = randomNumber(45, 105) * (Math.random() < 0.5 ? -1 : 1);
-  }
-
   obstacles.push(obstacle);
 }
 
@@ -538,35 +522,34 @@ function getPhaseConfig(level) {
 
 function getInfinitePhaseConfig() {
   const infiniteTime = Math.max(0, elapsedTime - INFINITE_MODE_START_TIME);
-  const speedBonus = Math.min(infiniteTime * 5.5, 310);
-  const spawnReduction = Math.min(infiniteTime * 0.004, 0.14);
+  const speedBonus = Math.min(infiniteTime * 2.8, 220);
+  const spawnReduction = Math.min(infiniteTime * 0.0016, 0.16);
 
   return {
     level: 4,
     label: '∞',
     startTime: INFINITE_MODE_START_TIME,
-    spawnInterval: Math.max(0.24, 0.36 - spawnReduction),
-    speedMin: 340 + speedBonus,
-    speedMax: 540 + speedBonus * 1.25,
-    widthMin: 46,
-    widthMax: 112,
-    heightMin: 30,
-    heightMax: 64,
-    extraSpawnChance: clamp(0.42 + infiniteTime * 0.003, 0.42, 0.72),
-    itemSpawnInterval: Math.max(3.8, 4.6 - infiniteTime * 0.01),
-    itemSpawnChance: 0.42,
+    spawnInterval: Math.max(0.36, 0.56 - spawnReduction),
+    speedMin: 260 + speedBonus,
+    speedMax: 420 + speedBonus,
+    widthMin: 40,
+    widthMax: 92,
+    heightMin: 24,
+    heightMax: 54,
+    extraSpawnChance: clamp(0.18 + infiniteTime * 0.0015, 0.18, 0.45),
+    itemSpawnInterval: Math.max(4.2, 5.0 - infiniteTime * 0.004),
+    itemSpawnChance: 0.44,
     background: '#160f22',
     obstacleColor: '#b95cff',
     obstacleWeights: {
-      normal: 0.34,
-      glitch: 0.23,
-      wave: 0.22,
-      diagonal: 0.21
+      normal: 0.46,
+      glitch: 0.24,
+      wave: 0.3
     },
     itemWeights: {
-      shield: 0.28,
-      heal: 0.24,
-      poison: 0.48
+      shield: 0.31,
+      heal: 0.29,
+      poison: 0.4
     }
   };
 }
@@ -575,8 +558,7 @@ function getObstacleColor(type, fallbackColor) {
   const colors = {
     normal: fallbackColor,
     glitch: '#54f5ff',
-    wave: '#ffe066',
-    diagonal: '#b983ff'
+    wave: '#ffe066'
   };
 
   return colors[type] || fallbackColor;
@@ -665,11 +647,6 @@ function drawPlayer() {
 
 function drawObstacles() {
   obstacles.forEach((obstacle) => {
-    if (obstacle.type === 'diagonal') {
-      drawDiagonalObstacle(obstacle);
-      return;
-    }
-
     if (obstacle.type === 'glitch') {
       drawGlitchObstacle(obstacle);
       return;
@@ -746,16 +723,6 @@ function drawWaveObstacle(obstacle) {
   ctx.stroke();
 }
 
-function drawDiagonalObstacle(obstacle) {
-  ctx.save();
-  ctx.translate(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2);
-  ctx.rotate(obstacle.horizontalSpeed > 0 ? 0.34 : -0.34);
-  ctx.fillStyle = obstacle.color;
-  ctx.fillRect(-obstacle.width / 2, -obstacle.height / 2, obstacle.width, obstacle.height);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-  ctx.fillRect(-obstacle.width / 2 + 6, -obstacle.height / 2 + 5, Math.max(4, obstacle.width - 12), 5);
-  ctx.restore();
-}
 
 function drawItems() {
   items.forEach((item) => {
