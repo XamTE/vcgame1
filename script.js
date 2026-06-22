@@ -16,13 +16,175 @@ const saveMessage = document.getElementById('saveMessage');
 const rankingList = document.getElementById('rankingList');
 const emptyRankingText = document.getElementById('emptyRankingText');
 const clearRankingButton = document.getElementById('clearRankingButton');
+const settingsButton = document.getElementById('settingsButton');
+const soundSettingsPanel = document.getElementById('soundSettingsPanel');
+const closeSettingsButton = document.getElementById('closeSettingsButton');
+const bgmVolumeInput = document.getElementById('bgmVolumeInput');
+const bgmVolumeValue = document.getElementById('bgmVolumeValue');
+const sfxVolumeInput = document.getElementById('sfxVolumeInput');
+const sfxVolumeValue = document.getElementById('sfxVolumeValue');
+const replayTutorialButton = document.getElementById('replayTutorialButton');
+const tutorialLayer = document.getElementById('tutorialLayer');
+const tutorialNpcName = document.getElementById('tutorialNpcName');
+const tutorialText = document.getElementById('tutorialText');
 
+const GAME_TITLE = '악몽의 잔재';
 const INFINITE_MODE_START_TIME = 30;
-const PLAYER_SPEED = 6;
+const PLAYER_SPEED = 360;
 const RANKING_STORAGE_KEY = 'dodgeGameRankings';
+const SOUND_SETTINGS_STORAGE_KEY = 'dodgeGameSoundSettings';
+const TUTORIAL_STORAGE_KEY = 'dodgeGameTutorialSeen';
 const MAX_RANKING_COUNT = 10;
 const MAX_LIFE_LIMIT = 3;
 const MAX_SHIELD_COUNT = 1;
+const PLAYER_SIZE = 70;
+const PLAYER_BOTTOM_MARGIN = 20;
+const DEFAULT_BGM_VOLUME = 28;
+const DEFAULT_SFX_VOLUME = 55;
+const DEFAULT_OVERLAY_MESSAGE = '방향키 또는 A/D로 이동합니다. 모바일에서는 화면의 왼쪽이나 오른쪽을 누르세요. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.';
+
+const FULL_HITBOX = {
+  x: 0,
+  y: 0,
+  width: 1,
+  height: 1
+};
+
+const HITBOX_RATIOS = {
+  player: {
+    x: 0.27,
+    y: 0.142,
+    width: 0.436,
+    height: 0.698
+  },
+  obstacles: {
+    normal: {
+      x: 0.338,
+      y: 0.162,
+      width: 0.314,
+      height: 0.61
+    },
+    wave: {
+      x: 0.27,
+      y: 0.104,
+      width: 0.46,
+      height: 0.78
+    },
+    glitch: {
+      x: 0.248,
+      y: 0.03,
+      width: 0.486,
+      height: 0.912
+    }
+  },
+  items: {
+    shield: {
+      x: 0.258,
+      y: 0.144,
+      width: 0.482,
+      height: 0.696
+    },
+    heal: {
+      x: 0.214,
+      y: 0.14,
+      width: 0.56,
+      height: 0.684
+    },
+    poison: {
+      x: 0.206,
+      y: 0.122,
+      width: 0.59,
+      height: 0.76
+    }
+  }
+};
+
+const gameAssets = {
+  backgrounds: {
+    stage: loadGameImage('asset/backgrounds/bg_stage.png'),
+    endless: loadGameImage('asset/backgrounds/bg_endless.png'),
+    gameoverGood: loadGameImage('asset/backgrounds/bg_gameover_good.png'),
+    gameoverBad: loadGameImage('asset/backgrounds/bg_gameover_bad.png')
+  },
+  obstacles: {
+    normal: loadGameImage('asset/obstacles/obstacle_normal.png'),
+    wave: loadGameImage('asset/obstacles/obstacle_wobble.png'),
+    glitch: loadGameImage('asset/obstacles/obstacle_glitch.png')
+  },
+  items: {
+    shield: loadGameImage('asset/items/item_shield.png'),
+    heal: loadGameImage('asset/items/item_heal.png'),
+    poison: loadGameImage('asset/items/item_poison.png')
+  },
+  player: {
+    flame: loadGameImage('asset/player/player_flame.png')
+  },
+  npc: {
+    dreamManager: loadGameImage('asset/npc/npc_dream_manager_portrait.png')
+  }
+};
+
+const TUTORIAL_DIALOGUES = [
+  {
+    name: '꿈 관리자',
+    text: '어라, 일어났네.',
+    demos: []
+  },
+  {
+    name: '꿈 관리자',
+    text: '깨어나기 전의 방에 온 걸 환영해.',
+    demos: []
+  },
+  {
+    name: '꿈 관리자',
+    text: '너는 아직 완전히 깨어나지 못한 의식의 불꽃이야.',
+    demos: [],
+    highlightPlayer: true
+  },
+  {
+    name: '꿈 관리자',
+    text: '위에서 떨어지는 악몽의 잔재를 피해야 해. 방향키나 좌우를 터치하면 이동할 수 있어.',
+    demos: [{ category: 'obstacles', type: 'normal' }]
+  },
+  {
+    name: '꿈 관리자',
+    text: '흔들리는 잔재는 좌우로 움직일거야.',
+    demos: [{ category: 'obstacles', type: 'wave' }]
+  },
+  {
+    name: '꿈 관리자',
+    text: '뒤틀린 잔재는 중간에 갑자기 위치를 바꿀거고.',
+    demos: [{ category: 'obstacles', type: 'glitch' }]
+  },
+  {
+    name: '꿈 관리자',
+    text: '방패는 한 번의 충돌을 막아주고, 회복은 목숨을 하나 되돌려줘.',
+    demos: [
+      { category: 'items', type: 'shield' },
+      { category: 'items', type: 'heal' }
+    ]
+  },
+  {
+    name: '꿈 관리자',
+    text: '하지만 깨진 검은 심장은 독극물이야. 닿으면 목숨을 잃어.',
+    demos: [{ category: 'items', type: 'poison' }]
+  },
+  {
+    name: '꿈 관리자',
+    text: '30초를 버티면 기억하지 못하는 꿈으로 이어질 거야.',
+    demos: []
+  },
+  {
+    name: '꿈 관리자',
+    text: '오래 버틸수록 밝은 아침을 맞이할 수 있겠지.',
+    demos: []
+  },
+  {
+    name: '꿈 관리자',
+    text: '간단하지? 피하고, 최대한 오래 버텨.',
+    demos: []
+  }
+];
 
 const PHASES = [
   {
@@ -122,7 +284,7 @@ const ITEM_TYPES = {
     speed: 155
   },
   poison: {
-    label: '독극물',
+    label: '독버섯',
     color: '#111111',
     size: 30,
     speed: 165
@@ -130,15 +292,26 @@ const ITEM_TYPES = {
 };
 
 const sounds = {
+  start: new Audio('sounds/start.wav'),
   dodge: new Audio('sounds/dodge.wav'),
+  hit: new Audio('sounds/hit.wav'),
+  shield: new Audio('sounds/shield.wav'),
+  heal: new Audio('sounds/heal.wav'),
+  poison: new Audio('sounds/poison.wav'),
   win: new Audio('sounds/win.wav'),
   lose: new Audio('sounds/lose.wav')
 };
 
+const backgroundMusic = new Audio('sounds/Background.mp3');
+backgroundMusic.loop = true;
+backgroundMusic.preload = 'auto';
+
 Object.values(sounds).forEach((sound) => {
   sound.preload = 'auto';
-  sound.volume = 0.55;
 });
+
+let soundSettings = getSavedSoundSettings();
+applySoundSettings();
 
 let player;
 let obstacles;
@@ -159,17 +332,22 @@ let enteredInfiniteMode;
 let maxLives;
 let lives;
 let shieldCount;
+let pointerDirection = 0;
+let activePointerId = null;
 let soundUnlocked = false;
 let pendingRecord = null;
 let recordSaved = false;
+let tutorialIndex = 0;
+let tutorialDemoEntities = [];
 
 function resetGame() {
   player = {
-    width: 52,
-    height: 26,
-    x: canvas.width / 2 - 26,
-    y: canvas.height - 58,
+    width: PLAYER_SIZE,
+    height: PLAYER_SIZE,
+    x: canvas.width / 2 - PLAYER_SIZE / 2,
+    y: canvas.height - PLAYER_SIZE - PLAYER_BOTTOM_MARGIN,
     speed: PLAYER_SPEED,
+    hitbox: HITBOX_RATIOS.player,
     invincibleTimer: 0
   };
 
@@ -194,10 +372,18 @@ function resetGame() {
   maxLives = 1;
   lives = 1;
   shieldCount = 0;
+  pointerDirection = 0;
+  activePointerId = null;
   pendingRecord = null;
   recordSaved = false;
+  tutorialIndex = 0;
+  tutorialDemoEntities = [];
 
   hideNicknameForm();
+  replayTutorialButton.classList.remove('hidden');
+  startButton.textContent = '게임 시작';
+  overlayTitle.textContent = GAME_TITLE;
+  overlayMessage.textContent = DEFAULT_OVERLAY_MESSAGE;
   updateStatus();
   drawGame();
 }
@@ -208,7 +394,10 @@ function startGame() {
   stopAllSounds();
   resetGame();
   gameState = 'playing';
+  playSound('start');
+  playBackgroundMusic();
   overlay.classList.add('hidden');
+  tutorialLayer.classList.add('hidden');
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -217,6 +406,7 @@ function endGame() {
 
   gameState = 'ended';
   cancelAnimationFrame(animationId);
+  stopBackgroundMusic();
   playSound('lose');
 
   const result = elapsedTime >= INFINITE_MODE_START_TIME ? 'infinite' : 'lose';
@@ -239,9 +429,189 @@ function endGame() {
     overlayMessage.textContent = `${getStageDisplayText(maxReachedLevel)}에서 목숨을 모두 잃었습니다. 최종 점수: ${score}`;
   }
 
+  drawGameOverBackground(result);
   showNicknameForm();
+  replayTutorialButton.classList.add('hidden');
   startButton.textContent = '다시 시작';
   overlay.classList.remove('hidden');
+}
+
+function handleStartButtonClick() {
+  if (hasSeenTutorial()) {
+    startGame();
+    return;
+  }
+
+  openTutorial();
+}
+
+function openTutorial() {
+  cancelAnimationFrame(animationId);
+  stopAllSounds();
+  resetGame();
+  closeSettingsPanel();
+
+  gameState = 'tutorial';
+  overlay.classList.add('hidden');
+  tutorialLayer.classList.remove('hidden');
+  tutorialLayer.focus({ preventScroll: true });
+  setTutorialStep(0);
+}
+
+function closeTutorial() {
+  tutorialLayer.classList.add('hidden');
+  tutorialDemoEntities = [];
+}
+
+function finishTutorial() {
+  markTutorialSeen();
+  closeTutorial();
+  startGame();
+}
+
+function advanceTutorial() {
+  if (tutorialIndex >= TUTORIAL_DIALOGUES.length - 1) {
+    finishTutorial();
+    return;
+  }
+
+  setTutorialStep(tutorialIndex + 1);
+}
+
+function setTutorialStep(index) {
+  tutorialIndex = clamp(index, 0, TUTORIAL_DIALOGUES.length - 1);
+
+  const dialogue = TUTORIAL_DIALOGUES[tutorialIndex];
+
+  tutorialNpcName.textContent = dialogue.name;
+  tutorialText.textContent = dialogue.text;
+  tutorialDemoEntities = createTutorialDemoEntities(dialogue.demos);
+  drawTutorialFrame();
+}
+
+function handleTutorialAdvanceInput(event) {
+  if (gameState !== 'tutorial') return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  advanceTutorial();
+}
+
+function createTutorialDemoEntities(demos) {
+  if (!Array.isArray(demos) || demos.length === 0) return [];
+
+  return demos.map((demo, index) => createTutorialDemoEntity(demo, index, demos.length));
+}
+
+function createTutorialDemoEntity(demo, index, totalCount) {
+  const isItemDemo = demo.category === 'items';
+  const size = totalCount > 1 ? 58 : (isItemDemo ? 62 : 90);
+  const spacing = totalCount > 1 ? 82 : 0;
+  const centerX = canvas.width / 2 + (index - (totalCount - 1) / 2) * spacing;
+  const centerY = canvas.height * 0.46;
+  const x = clamp(centerX - size / 2, 18, canvas.width - size - 18);
+  const y = clamp(centerY - size / 2, 48, canvas.height - size - 170);
+
+  return {
+    category: demo.category,
+    type: demo.type,
+    x,
+    y,
+    width: size,
+    height: size,
+    size,
+    level: currentLevel,
+    color: isItemDemo ? ITEM_TYPES[demo.type].color : currentPhase.obstacleColor,
+    age: 0,
+    baseX: x,
+    waveAmplitude: 0,
+    waveFrequency: 4.6,
+    wavePhase: 0,
+    teleportY: canvas.height * 0.42,
+    teleported: false,
+    glitchFlashTimer: 0
+  };
+}
+
+function drawTutorialFrame() {
+  drawGame();
+  drawTutorialHighlight();
+  drawTutorialDemo();
+}
+
+function drawTutorialDemo() {
+  tutorialDemoEntities.forEach(drawTutorialDemoEntity);
+}
+
+function drawTutorialDemoEntity(tutorialDemoEntity) {
+  if (tutorialDemoEntity.category === 'items') {
+    if (drawItemAsset(tutorialDemoEntity)) return;
+
+    if (tutorialDemoEntity.type === 'shield') {
+      drawShieldItem(tutorialDemoEntity);
+      return;
+    }
+
+    drawHeartItem(tutorialDemoEntity, tutorialDemoEntity.type === 'poison');
+    return;
+  }
+
+  if (drawObstacleAsset(tutorialDemoEntity)) return;
+
+  if (tutorialDemoEntity.type === 'glitch') {
+    drawGlitchObstacle(tutorialDemoEntity);
+    return;
+  }
+
+  if (tutorialDemoEntity.type === 'wave') {
+    drawWaveObstacle(tutorialDemoEntity);
+    return;
+  }
+
+  drawNormalObstacle(tutorialDemoEntity);
+}
+
+function drawTutorialHighlight() {
+  const dialogue = TUTORIAL_DIALOGUES[tutorialIndex];
+
+  if (!dialogue.highlightPlayer) return;
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const radius = Math.max(player.width, player.height) * 0.64;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(143, 214, 255, 0.95)';
+  ctx.lineWidth = 5;
+  ctx.shadowColor = 'rgba(143, 214, 255, 0.95)';
+  ctx.shadowBlur = 24;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.64)';
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function hasSeenTutorial() {
+  try {
+    return localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true';
+  } catch (error) {
+    return false;
+  }
+}
+
+function markTutorialSeen() {
+  try {
+    localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
+  } catch (error) {
+    // 저장소를 사용할 수 없어도 현재 튜토리얼 진행은 유지합니다.
+  }
 }
 
 function gameLoop(timestamp) {
@@ -269,7 +639,7 @@ function updateGame(deltaTime) {
   }
 
   updateCurrentPhase();
-  movePlayer();
+  movePlayer(deltaTime);
   updateObstacleSpawning(deltaTime);
   updateItemSpawning(deltaTime);
   updateObstacles(deltaTime);
@@ -411,12 +781,13 @@ function applyDamage() {
   if (shieldCount > 0) {
     shieldCount -= 1;
     player.invincibleTimer = 0.9;
-    playSound('dodge');
+    playSound('shield');
     return;
   }
 
   lives -= 1;
   player.invincibleTimer = 1.1;
+  playSound('hit');
 
   if (lives <= 0) {
     lives = 0;
@@ -428,19 +799,20 @@ function applyDamage() {
 function applyItemEffect(itemType) {
   if (itemType === 'shield') {
     shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
-    playSound('dodge');
+    playSound('shield');
     return;
   }
 
   if (itemType === 'heal') {
     lives = Math.min(maxLives, lives + 1);
-    playSound('dodge');
+    playSound('heal');
     return;
   }
 
   if (itemType === 'poison') {
     lives -= 1;
     player.invincibleTimer = 0.8;
+    playSound('poison');
 
     if (lives <= 0) {
       lives = 0;
@@ -450,22 +822,20 @@ function applyItemEffect(itemType) {
   }
 }
 
-function movePlayer() {
-  if (keys.left) {
-    player.x -= player.speed;
-  }
+function movePlayer(deltaTime) {
+  const keyboardDirection = Number(keys.right) - Number(keys.left);
+  const movementDirection = pointerDirection || keyboardDirection;
 
-  if (keys.right) {
-    player.x += player.speed;
-  }
+  player.x += movementDirection * player.speed * deltaTime;
 
   player.x = clamp(player.x, 0, canvas.width - player.width);
 }
 
 function spawnObstacle(phaseConfig) {
   const type = chooseWeighted(phaseConfig.obstacleWeights);
-  const width = randomNumber(phaseConfig.widthMin, phaseConfig.widthMax);
-  const height = randomNumber(phaseConfig.heightMin, phaseConfig.heightMax);
+  const size = randomNumber(phaseConfig.widthMin, phaseConfig.widthMax);
+  const width = size;
+  const height = size;
   const x = randomNumber(0, canvas.width - width);
   const speed = randomNumber(phaseConfig.speedMin, phaseConfig.speedMax);
 
@@ -478,6 +848,7 @@ function spawnObstacle(phaseConfig) {
     speed,
     level: phaseConfig.level,
     color: getObstacleColor(type, phaseConfig.obstacleColor),
+    hitbox: HITBOX_RATIOS.obstacles[type] || FULL_HITBOX,
     age: 0,
     baseX: x,
     horizontalSpeed: 0,
@@ -511,6 +882,7 @@ function spawnItem(phaseConfig) {
     height: size,
     size,
     speed: itemConfig.speed + randomNumber(-10, 24),
+    hitbox: HITBOX_RATIOS.items[type] || FULL_HITBOX,
     age: 0,
     color: itemConfig.color
   });
@@ -573,12 +945,26 @@ function getScoreValue(level) {
 }
 
 function isCollidingWithPlayer(target) {
+  const playerHitbox = getEntityHitbox(player);
+  const targetHitbox = getEntityHitbox(target);
+
   return !(
-    player.x + player.width < target.x ||
-    player.x > target.x + target.width ||
-    player.y + player.height < target.y ||
-    player.y > target.y + target.height
+    playerHitbox.x + playerHitbox.width < targetHitbox.x ||
+    playerHitbox.x > targetHitbox.x + targetHitbox.width ||
+    playerHitbox.y + playerHitbox.height < targetHitbox.y ||
+    playerHitbox.y > targetHitbox.y + targetHitbox.height
   );
+}
+
+function getEntityHitbox(entity) {
+  const hitbox = entity.hitbox || FULL_HITBOX;
+
+  return {
+    x: entity.x + entity.width * hitbox.x,
+    y: entity.y + entity.height * hitbox.y,
+    width: entity.width * hitbox.width,
+    height: entity.height * hitbox.height
+  };
 }
 
 function drawGame() {
@@ -594,6 +980,14 @@ function drawGame() {
 function drawBackground() {
   ctx.fillStyle = currentPhase.background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const backgroundImage = currentLevel === 4
+    ? gameAssets.backgrounds.endless
+    : gameAssets.backgrounds.stage;
+
+  if (drawCoverImage(backgroundImage, 0, 0, canvas.width, canvas.height)) {
+    if (currentLevel !== 4) return;
+  }
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
   ctx.lineWidth = 1;
@@ -621,6 +1015,74 @@ function drawBackground() {
   }
 }
 
+function drawGameOverBackground(result) {
+  const fallbackColor = result === 'infinite' ? '#160f22' : '#101723';
+  const backgroundImage = result === 'infinite'
+    ? gameAssets.backgrounds.gameoverGood
+    : gameAssets.backgrounds.gameoverBad;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = fallbackColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawCoverImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+}
+
+function loadGameImage(src) {
+  const image = new Image();
+
+  image.addEventListener('load', () => {
+    if (gameState === 'ended' && pendingRecord) {
+      drawGameOverBackground(pendingRecord.result);
+      return;
+    }
+
+    if (gameState === 'tutorial') {
+      drawTutorialFrame();
+      return;
+    }
+
+    if (gameState === 'ready' || gameState === 'playing') {
+      drawGame();
+    }
+  });
+
+  image.src = src;
+  return image;
+}
+
+function isImageReady(image) {
+  return image && image.complete && image.naturalWidth > 0;
+}
+
+function drawCoverImage(image, x, y, width, height) {
+  if (!isImageReady(image)) return false;
+
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const targetRatio = width / height;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = image.naturalWidth;
+  let sourceHeight = image.naturalHeight;
+
+  if (imageRatio > targetRatio) {
+    sourceWidth = image.naturalHeight * targetRatio;
+    sourceX = (image.naturalWidth - sourceWidth) / 2;
+  } else if (imageRatio < targetRatio) {
+    sourceHeight = image.naturalWidth / targetRatio;
+    sourceY = (image.naturalHeight - sourceHeight) / 2;
+  }
+
+  ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+  return true;
+}
+
+function drawSpriteImage(image, x, y, width, height) {
+  if (!isImageReady(image)) return false;
+
+  ctx.drawImage(image, x, y, width, height);
+  return true;
+}
+
 function drawPlayer() {
   const shouldBlink = player.invincibleTimer > 0 && Math.floor(player.invincibleTimer * 14) % 2 === 0;
 
@@ -628,17 +1090,29 @@ function drawPlayer() {
     ctx.globalAlpha = 0.45;
   }
 
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  const didDrawPlayerAsset = drawSpriteImage(
+    gameAssets.player.flame,
+    player.x,
+    player.y,
+    player.width,
+    player.height
+  );
 
-  ctx.fillStyle = '#9aa6bc';
-  ctx.fillRect(player.x + 8, player.y + 6, player.width - 16, 6);
+  if (!didDrawPlayerAsset) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    ctx.fillStyle = '#9aa6bc';
+    ctx.fillRect(player.x + 8, player.y + 6, player.width - 16, 6);
+  }
 
   if (shieldCount > 0) {
+    const hitbox = getEntityHitbox(player);
+
     ctx.strokeStyle = 'rgba(100, 210, 255, 0.85)';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    drawRoundedRect(player.x - 7, player.y - 7, player.width + 14, player.height + 14, 12);
+    drawRoundedRect(hitbox.x - 8, hitbox.y - 8, hitbox.width + 16, hitbox.height + 16, 14);
     ctx.stroke();
   }
 
@@ -647,6 +1121,8 @@ function drawPlayer() {
 
 function drawObstacles() {
   obstacles.forEach((obstacle) => {
+    if (drawObstacleAsset(obstacle)) return;
+
     if (obstacle.type === 'glitch') {
       drawGlitchObstacle(obstacle);
       return;
@@ -659,6 +1135,19 @@ function drawObstacles() {
 
     drawNormalObstacle(obstacle);
   });
+}
+
+function drawObstacleAsset(obstacle) {
+  const image = gameAssets.obstacles[obstacle.type];
+
+  if (!isImageReady(image)) return false;
+
+  const jitterOffset = obstacle.type === 'glitch'
+    ? Math.sin(obstacle.age * 42) * (obstacle.glitchFlashTimer > 0 ? 5 : 2)
+    : 0;
+
+  drawSpriteImage(image, obstacle.x + jitterOffset, obstacle.y, obstacle.width, obstacle.height);
+  return true;
 }
 
 
@@ -726,6 +1215,8 @@ function drawWaveObstacle(obstacle) {
 
 function drawItems() {
   items.forEach((item) => {
+    if (drawItemAsset(item)) return;
+
     if (item.type === 'shield') {
       drawShieldItem(item);
       return;
@@ -738,6 +1229,11 @@ function drawItems() {
 
     drawHeartItem(item, true);
   });
+}
+
+function drawItemAsset(item) {
+  const image = gameAssets.items[item.type];
+  return drawSpriteImage(image, item.x, item.y, item.size, item.size);
 }
 
 function drawShieldItem(item) {
@@ -842,6 +1338,94 @@ function getStageDisplayText(level) {
   return `${level}단계`;
 }
 
+function getSavedSoundSettings() {
+  try {
+    const savedSettings = localStorage.getItem(SOUND_SETTINGS_STORAGE_KEY);
+    if (!savedSettings) {
+      return {
+        bgm: DEFAULT_BGM_VOLUME,
+        sfx: DEFAULT_SFX_VOLUME
+      };
+    }
+
+    const parsedSettings = JSON.parse(savedSettings);
+
+    return {
+      bgm: normalizeVolumeValue(parsedSettings.bgm, DEFAULT_BGM_VOLUME),
+      sfx: normalizeVolumeValue(parsedSettings.sfx, DEFAULT_SFX_VOLUME)
+    };
+  } catch (error) {
+    return {
+      bgm: DEFAULT_BGM_VOLUME,
+      sfx: DEFAULT_SFX_VOLUME
+    };
+  }
+}
+
+function normalizeVolumeValue(value, fallbackValue) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return fallbackValue;
+  }
+
+  return Math.round(clamp(numericValue, 0, 100));
+}
+
+function saveSoundSettings() {
+  try {
+    localStorage.setItem(SOUND_SETTINGS_STORAGE_KEY, JSON.stringify(soundSettings));
+  } catch (error) {
+    // 저장소를 사용할 수 없어도 현재 세션의 볼륨 변경은 그대로 적용합니다.
+  }
+}
+
+function applySoundSettings() {
+  backgroundMusic.volume = soundSettings.bgm / 100;
+
+  Object.values(sounds).forEach((sound) => {
+    sound.volume = soundSettings.sfx / 100;
+  });
+
+  syncSoundSettingsControls();
+}
+
+function syncSoundSettingsControls() {
+  bgmVolumeInput.value = soundSettings.bgm;
+  bgmVolumeValue.textContent = soundSettings.bgm;
+  sfxVolumeInput.value = soundSettings.sfx;
+  sfxVolumeValue.textContent = soundSettings.sfx;
+}
+
+function updateSoundSetting(settingName, value) {
+  soundSettings = {
+    ...soundSettings,
+    [settingName]: normalizeVolumeValue(value, soundSettings[settingName])
+  };
+
+  applySoundSettings();
+  saveSoundSettings();
+}
+
+function openSettingsPanel() {
+  soundSettingsPanel.classList.remove('hidden');
+  settingsButton.setAttribute('aria-expanded', 'true');
+}
+
+function closeSettingsPanel() {
+  soundSettingsPanel.classList.add('hidden');
+  settingsButton.setAttribute('aria-expanded', 'false');
+}
+
+function toggleSettingsPanel() {
+  if (soundSettingsPanel.classList.contains('hidden')) {
+    openSettingsPanel();
+    return;
+  }
+
+  closeSettingsPanel();
+}
+
 function playSound(soundName) {
   const sound = sounds[soundName];
 
@@ -853,11 +1437,24 @@ function playSound(soundName) {
   });
 }
 
+function playBackgroundMusic() {
+  backgroundMusic.currentTime = 0;
+  backgroundMusic.play().catch(() => {
+    // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
+  });
+}
+
+function stopBackgroundMusic() {
+  backgroundMusic.pause();
+  backgroundMusic.currentTime = 0;
+}
+
 function stopAllSounds() {
   Object.values(sounds).forEach((sound) => {
     sound.pause();
     sound.currentTime = 0;
   });
+  stopBackgroundMusic();
 }
 
 function unlockSounds() {
@@ -866,6 +1463,7 @@ function unlockSounds() {
   Object.values(sounds).forEach((sound) => {
     sound.load();
   });
+  backgroundMusic.load();
 
   soundUnlocked = true;
 }
@@ -1071,29 +1669,120 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
 }
 
+function updatePointerDirection(event) {
+  const rect = canvas.getBoundingClientRect();
+  pointerDirection = event.clientX < rect.left + rect.width / 2 ? -1 : 1;
+}
+
+function startPointerInput(event) {
+  if (gameState !== 'playing') return;
+  if (activePointerId !== null && activePointerId !== event.pointerId) return;
+
+  activePointerId = event.pointerId;
+  updatePointerDirection(event);
+
+  if (typeof canvas.setPointerCapture === 'function') {
+    canvas.setPointerCapture(event.pointerId);
+  }
+
+  event.preventDefault();
+}
+
+function movePointerInput(event) {
+  if (event.pointerId !== activePointerId) return;
+
+  updatePointerDirection(event);
+  event.preventDefault();
+}
+
+function endPointerInput(event) {
+  if (event.pointerId !== activePointerId) return;
+
+  pointerDirection = 0;
+  activePointerId = null;
+
+  if (typeof canvas.hasPointerCapture === 'function' && canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
+  }
+
+  event.preventDefault();
+}
+
+function isLeftMoveKey(event) {
+  return event.key === 'ArrowLeft' || event.code === 'KeyA' || event.key.toLowerCase() === 'a';
+}
+
+function isRightMoveKey(event) {
+  return event.key === 'ArrowRight' || event.code === 'KeyD' || event.key.toLowerCase() === 'd';
+}
+
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'ArrowLeft') {
+  if (gameState !== 'playing') return;
+
+  if (isLeftMoveKey(event)) {
     keys.left = true;
     event.preventDefault();
   }
 
-  if (event.key === 'ArrowRight') {
+  if (isRightMoveKey(event)) {
     keys.right = true;
     event.preventDefault();
   }
 });
 
 window.addEventListener('keyup', (event) => {
-  if (event.key === 'ArrowLeft') {
+  if (!keys) return;
+
+  if (isLeftMoveKey(event)) {
     keys.left = false;
   }
 
-  if (event.key === 'ArrowRight') {
+  if (isRightMoveKey(event)) {
     keys.right = false;
   }
 });
 
-startButton.addEventListener('click', startGame);
+canvas.addEventListener('pointerdown', startPointerInput);
+canvas.addEventListener('pointermove', movePointerInput);
+canvas.addEventListener('pointerup', endPointerInput);
+canvas.addEventListener('pointercancel', endPointerInput);
+canvas.addEventListener('lostpointercapture', endPointerInput);
+
+settingsButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  toggleSettingsPanel();
+});
+
+closeSettingsButton.addEventListener('click', closeSettingsPanel);
+
+soundSettingsPanel.addEventListener('click', (event) => {
+  event.stopPropagation();
+});
+
+document.addEventListener('click', closeSettingsPanel);
+
+document.addEventListener('keydown', (event) => {
+  if (gameState === 'tutorial' && (event.key === 'Enter' || event.key === ' ')) {
+    handleTutorialAdvanceInput(event);
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    closeSettingsPanel();
+  }
+});
+
+bgmVolumeInput.addEventListener('input', (event) => {
+  updateSoundSetting('bgm', event.target.value);
+});
+
+sfxVolumeInput.addEventListener('input', (event) => {
+  updateSoundSetting('sfx', event.target.value);
+});
+
+startButton.addEventListener('click', handleStartButtonClick);
+replayTutorialButton.addEventListener('click', openTutorial);
+tutorialLayer.addEventListener('pointerup', handleTutorialAdvanceInput);
 nicknameForm.addEventListener('submit', saveCurrentRecord);
 clearRankingButton.addEventListener('click', clearRankings);
 

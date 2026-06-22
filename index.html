@@ -3,16 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>피하기 게임</title>
+  <title>악몽의 잔재</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="game-wrapper">
     <section class="game-card">
+      <div id="soundSettingsPanel" class="settings-panel hidden" role="dialog" aria-label="사운드 설정">
+        <div class="settings-header">
+          <h2>사운드</h2>
+          <button id="closeSettingsButton" class="icon-button" type="button" aria-label="사운드 설정 닫기">×</button>
+        </div>
+
+        <label class="volume-control" for="bgmVolumeInput">
+          <span>BGM</span>
+          <input id="bgmVolumeInput" type="range" min="0" max="100" step="1" />
+          <strong id="bgmVolumeValue">28</strong>
+        </label>
+
+        <label class="volume-control" for="sfxVolumeInput">
+          <span>효과음</span>
+          <input id="sfxVolumeInput" type="range" min="0" max="100" step="1" />
+          <strong id="sfxVolumeValue">55</strong>
+        </label>
+      </div>
+
       <header class="game-header">
         <div>
-          <h1>피하기 게임</h1>
-          <p>장애물과 함정 아이템을 피하고, 30초 이후부터 시작되는 무한모드에서 최대한 오래 버티세요.</p>
+          <h1>악몽의 잔재</h1>
+          <p>장애물과 함정 아이템을 피하고, 30초 이후 시작되는 무한모드에서 최대한 오래 버티세요.</p>
         </div>
 
         <div class="status-panel" aria-label="게임 상태">
@@ -36,18 +55,28 @@
             <span>방패</span>
             <strong id="shieldText">0</strong>
           </div>
+          <button
+            id="settingsButton"
+            class="settings-button"
+            type="button"
+            aria-label="사운드 설정 열기"
+            aria-expanded="false"
+            aria-controls="soundSettingsPanel"
+          >
+            ⚙
+          </button>
         </div>
       </header>
 
       <div class="canvas-area">
-        <canvas id="gameCanvas" width="480" height="640" aria-label="피하기 게임 화면"></canvas>
+        <canvas id="gameCanvas" width="480" height="640" aria-label="악몽의 잔재 게임 화면"></canvas>
 
         <div id="overlay" class="overlay">
-          <h2 id="overlayTitle">피하기 게임</h2>
-          <p id="overlayMessage">방향키 ← → 로 이동합니다. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.</p>
+          <h2 id="overlayTitle">악몽의 잔재</h2>
+          <p id="overlayMessage">방향키 또는 A/D로 이동합니다. 모바일에서는 화면의 왼쪽이나 오른쪽을 누르세요. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.</p>
 
           <form id="nicknameForm" class="record-form hidden">
-            <label for="nicknameInput">닉네임을 남겨주세요</label>
+            <label for="nicknameInput">닉네임을 입력해주세요</label>
             <div class="record-row">
               <input
                 id="nicknameInput"
@@ -62,10 +91,28 @@
           </form>
 
           <button id="startButton" type="button">게임 시작</button>
+          <button id="replayTutorialButton" class="tutorial-replay-button" type="button">튜토리얼 다시 보기</button>
+        </div>
+
+        <div id="tutorialLayer" class="tutorial-layer hidden" role="button" tabindex="0" aria-label="튜토리얼 대사 넘기기" aria-live="polite">
+          <div class="tutorial-dialog">
+            <div class="tutorial-portrait-frame">
+              <img
+                id="tutorialPortrait"
+                src="asset/npc/npc_dream_manager_portrait.png"
+                alt="꿈 관리자 초상화"
+              />
+            </div>
+
+            <div class="tutorial-copy">
+              <strong id="tutorialNpcName">꿈 관리자</strong>
+              <p id="tutorialText"></p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <section class="ranking-panel" aria-label="플레이 로그 순위표">
+      <section class="ranking-panel" aria-label="플레이 로그 순위">
         <div class="ranking-header">
           <div>
             <h2>플레이 로그 TOP 10</h2>
@@ -79,10 +126,10 @@
       </section>
 
       <footer class="game-footer">
-        <p><strong>조작:</strong> 방향키 ← →</p>
-        <p><strong>단계:</strong> 1단계 → 2단계 → 3단계 → 무한모드</p>
+        <p><strong>조작:</strong> 방향키 / A,D / 화면 좌우 터치</p>
+        <p><strong>단계:</strong> 1단계 -> 2단계 -> 3단계 -> 무한모드</p>
         <p><strong>장애물:</strong> 일반 / 흔들림 / 오류</p>
-        <p><strong>아이템:</strong> 방패 / 회복 / 독극물</p>
+        <p><strong>아이템:</strong> 방패 / 회복 / 독버섯</p>
       </footer>
     </section>
   </main>
