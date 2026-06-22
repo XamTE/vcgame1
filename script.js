@@ -27,10 +27,19 @@ const replayTutorialButton = document.getElementById('replayTutorialButton');
 const tutorialLayer = document.getElementById('tutorialLayer');
 const tutorialNpcName = document.getElementById('tutorialNpcName');
 const tutorialText = document.getElementById('tutorialText');
+const dreamLevelText = document.getElementById('dreamLevelText');
+const dreamXpText = document.getElementById('dreamXpText');
+const abilityLayer = document.getElementById('abilityLayer');
+const abilityOptions = document.getElementById('abilityOptions');
+const abilityMessage = document.getElementById('abilityMessage');
 
 const GAME_TITLE = '악몽의 잔재';
 const INFINITE_MODE_START_TIME = 30;
 const PLAYER_SPEED = 360;
+const MAX_DREAM_LEVEL = 10;
+const EXPERIENCE_SPAWN_INTERVAL = 2.25;
+const EXPERIENCE_SPAWN_CHANCE = 0.72;
+const MAX_EXPERIENCE_ITEMS = 4;
 const RANKING_STORAGE_KEY = 'dodgeGameRankings';
 const SOUND_SETTINGS_STORAGE_KEY = 'dodgeGameSoundSettings';
 const TUTORIAL_STORAGE_KEY = 'dodgeGameTutorialSeen';
@@ -42,6 +51,7 @@ const PLAYER_BOTTOM_MARGIN = 20;
 const DEFAULT_BGM_VOLUME = 28;
 const DEFAULT_SFX_VOLUME = 55;
 const DEFAULT_OVERLAY_MESSAGE = '방향키 또는 A/D로 이동합니다. 모바일에서는 화면의 왼쪽이나 오른쪽을 누르세요. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.';
+const ABILITY_MAX_LIFE_LIMIT = 4;
 
 const FULL_HITBOX = {
   x: 0,
@@ -95,6 +105,12 @@ const HITBOX_RATIOS = {
       y: 0.122,
       width: 0.59,
       height: 0.76
+    },
+    experience: {
+      x: 0.25,
+      y: 0.07,
+      width: 0.5,
+      height: 0.86
     }
   }
 };
@@ -114,7 +130,8 @@ const gameAssets = {
   items: {
     shield: loadGameImage('asset/items/item_shield.png'),
     heal: loadGameImage('asset/items/item_heal.png'),
-    poison: loadGameImage('asset/items/item_poison.png')
+    poison: loadGameImage('asset/items/item_poison.png'),
+    experience: loadGameImage('asset/items/item_experience.png')
   },
   player: {
     flame: loadGameImage('asset/player/player_flame.png')
@@ -176,7 +193,17 @@ const TUTORIAL_DIALOGUES = [
   },
   {
     name: '꿈 관리자',
-    text: '오래 버틸수록 밝은 아침을 맞이할 수 있겠지.',
+    text: '기억하지 못하는 꿈에서는 네 의식도, 악몽의 잔재도 더 강해질 거야.',
+    demos: []
+  },
+  {
+    name: '꿈 관리자',
+    text: '꿈 파편을 얻고, 꿈 레벨을 올려서 오랫동안 타오르도록 해.',
+    demos: [{ category: 'items', type: 'experience' }]
+  },
+  {
+    name: '꿈 관리자',
+    text: '오래 타오를수록 밝은 아침을 맞이할 수 있겠지.',
     demos: []
   },
   {
@@ -288,8 +315,81 @@ const ITEM_TYPES = {
     color: '#111111',
     size: 30,
     speed: 165
+  },
+  experience: {
+    label: '꿈 파편',
+    color: '#90f6ff',
+    size: 34,
+    speed: 178
   }
 };
+
+const ABILITIES = [
+  {
+    id: 'flameDash',
+    name: '불꽃의 질주',
+    tag: '이동',
+    description: '플레이어 이동 속도가 8% 증가합니다.',
+    weight: 1,
+    maxStacks: 3
+  },
+  {
+    id: 'dreamAfterimage',
+    name: '몽환의 잔상',
+    tag: '희귀',
+    description: '플레이어의 충돌 판정이 한 번 작아집니다.',
+    weight: 0.42,
+    gameLimit: 1
+  },
+  {
+    id: 'shardResonance',
+    name: '꿈 파편의 공명',
+    tag: '수집',
+    description: '꿈 파편을 끌어당기는 범위가 넓어집니다.',
+    weight: 1,
+    maxStacks: 3
+  },
+  {
+    id: 'consciousRekindle',
+    name: '의식의 재점화',
+    tag: '희귀',
+    description: '방패가 없을 때 일정 시간마다 방패를 다시 얻습니다.',
+    weight: 0.38,
+    gameLimit: 1
+  },
+  {
+    id: 'slowNightmare',
+    name: '느린 악몽',
+    tag: '방어',
+    description: '떨어지는 장애물의 속도가 8% 느려집니다.',
+    weight: 0.9,
+    maxStacks: 3
+  },
+  {
+    id: 'dawnPurification',
+    name: '새벽의 정화',
+    tag: '즉시',
+    description: '화면 안의 악몽 잔재 대부분을 즉시 지웁니다.',
+    weight: 0.95,
+    maxStacks: 4
+  },
+  {
+    id: 'undyingEmber',
+    name: '꺼지지 않는 불씨',
+    tag: '희귀',
+    description: '최대 목숨이 1 증가하고 현재 목숨도 1 회복합니다.',
+    weight: 0.55,
+    gameLimit: 1
+  },
+  {
+    id: 'lucidDream',
+    name: '선명해진 꿈결',
+    tag: '점수',
+    description: '장애물을 피해서 얻는 점수가 25% 증가합니다.',
+    weight: 1,
+    maxStacks: 3
+  }
+];
 
 const sounds = {
   start: new Audio('sounds/start.wav'),
@@ -316,11 +416,13 @@ applySoundSettings();
 let player;
 let obstacles;
 let items;
+let experienceItems;
 let keys;
 let score;
 let elapsedTime;
 let obstacleSpawnTimer;
 let itemSpawnTimer;
+let experienceSpawnTimer;
 let animationId;
 let lastTimestamp;
 let gameState;
@@ -339,6 +441,16 @@ let pendingRecord = null;
 let recordSaved = false;
 let tutorialIndex = 0;
 let tutorialDemoEntities = [];
+let dreamLevel;
+let dreamXp;
+let selectedAbilityChoices = [];
+let abilityUseCounts = {};
+let experienceMagnetRadius;
+let obstacleSpeedMultiplier;
+let scoreMultiplier;
+let shieldRechargeEnabled;
+let shieldRechargeTimer;
+let shieldRechargeInterval;
 
 function resetGame() {
   player = {
@@ -353,6 +465,7 @@ function resetGame() {
 
   obstacles = [];
   items = [];
+  experienceItems = [];
   keys = {
     left: false,
     right: false
@@ -362,6 +475,7 @@ function resetGame() {
   elapsedTime = 0;
   obstacleSpawnTimer = 0;
   itemSpawnTimer = 0;
+  experienceSpawnTimer = 0;
   lastTimestamp = 0;
   gameState = 'ready';
   currentLevel = 1;
@@ -378,8 +492,19 @@ function resetGame() {
   recordSaved = false;
   tutorialIndex = 0;
   tutorialDemoEntities = [];
+  dreamLevel = 1;
+  dreamXp = 0;
+  selectedAbilityChoices = [];
+  abilityUseCounts = {};
+  experienceMagnetRadius = 0;
+  obstacleSpeedMultiplier = 1;
+  scoreMultiplier = 1;
+  shieldRechargeEnabled = false;
+  shieldRechargeTimer = 0;
+  shieldRechargeInterval = 15;
 
   hideNicknameForm();
+  hideAbilitySelection();
   replayTutorialButton.classList.remove('hidden');
   startButton.textContent = '게임 시작';
   overlayTitle.textContent = GAME_TITLE;
@@ -633,19 +758,34 @@ function updateGame(deltaTime) {
   elapsedTime += deltaTime;
   obstacleSpawnTimer += deltaTime;
   itemSpawnTimer += deltaTime;
+  experienceSpawnTimer += deltaTime;
 
   if (player.invincibleTimer > 0) {
     player.invincibleTimer = Math.max(0, player.invincibleTimer - deltaTime);
   }
 
   updateCurrentPhase();
+  updateShieldRecharge(deltaTime);
   movePlayer(deltaTime);
   updateObstacleSpawning(deltaTime);
   updateItemSpawning(deltaTime);
+  updateExperienceSpawning();
   updateObstacles(deltaTime);
   updateItems(deltaTime);
+  updateExperienceItems(deltaTime);
   handleObstacleCollisions();
+  if (gameState !== 'playing') {
+    updateStatus();
+    return;
+  }
+
   handleItemCollisions();
+  if (gameState !== 'playing') {
+    updateStatus();
+    return;
+  }
+
+  handleExperienceCollisions();
   updateStatus();
 }
 
@@ -712,10 +852,21 @@ function updateItemSpawning() {
   itemSpawnTimer = 0;
 }
 
+function updateExperienceSpawning() {
+  if (currentLevel !== 4 || dreamLevel >= MAX_DREAM_LEVEL) return;
+  if (experienceSpawnTimer < EXPERIENCE_SPAWN_INTERVAL) return;
+
+  if (experienceItems.length < MAX_EXPERIENCE_ITEMS && Math.random() < EXPERIENCE_SPAWN_CHANCE) {
+    spawnExperienceItem();
+  }
+
+  experienceSpawnTimer = 0;
+}
+
 function updateObstacles(deltaTime) {
   obstacles.forEach((obstacle) => {
     obstacle.age += deltaTime;
-    obstacle.y += obstacle.speed * deltaTime;
+    obstacle.y += obstacle.speed * obstacleSpeedMultiplier * deltaTime;
 
     if (obstacle.type === 'wave') {
       obstacle.x = obstacle.baseX + Math.sin(obstacle.age * obstacle.waveFrequency + obstacle.wavePhase) * obstacle.waveAmplitude;
@@ -737,7 +888,7 @@ function updateObstacles(deltaTime) {
 
   obstacles = obstacles.filter((obstacle) => {
     if (obstacle.y > canvas.height) {
-      score += getScoreValue(obstacle.level);
+      addScore(getScoreValue(obstacle.level));
       playSound('dodge');
       return false;
     }
@@ -752,6 +903,36 @@ function updateItems(deltaTime) {
   });
 
   items = items.filter((item) => item.y < canvas.height + item.size);
+}
+
+function updateExperienceItems(deltaTime) {
+  const playerCenter = {
+    x: player.x + player.width / 2,
+    y: player.y + player.height / 2
+  };
+
+  experienceItems.forEach((item) => {
+    item.y += item.speed * deltaTime;
+    item.age += deltaTime;
+
+    if (experienceMagnetRadius <= 0) return;
+
+    const itemCenter = {
+      x: item.x + item.size / 2,
+      y: item.y + item.size / 2
+    };
+    const distanceX = playerCenter.x - itemCenter.x;
+    const distanceY = playerCenter.y - itemCenter.y;
+    const distance = Math.hypot(distanceX, distanceY);
+
+    if (distance <= 0 || distance > experienceMagnetRadius) return;
+
+    const pullSpeed = 280 + experienceMagnetRadius * 0.7;
+    item.x += (distanceX / distance) * pullSpeed * deltaTime;
+    item.y += (distanceY / distance) * pullSpeed * deltaTime;
+  });
+
+  experienceItems = experienceItems.filter((item) => item.y < canvas.height + item.size);
 }
 
 function handleObstacleCollisions() {
@@ -775,6 +956,19 @@ function handleItemCollisions() {
   });
 
   items = items.filter((_, index) => !collectedIndexes.includes(index));
+}
+
+function handleExperienceCollisions() {
+  const collectedIndexes = [];
+
+  experienceItems.forEach((item, index) => {
+    if (isCollidingWithPlayer(item)) {
+      collectedIndexes.push(index);
+      collectExperience(item.value);
+    }
+  });
+
+  experienceItems = experienceItems.filter((_, index) => !collectedIndexes.includes(index));
 }
 
 function applyDamage() {
@@ -820,6 +1014,209 @@ function applyItemEffect(itemType) {
       endGame();
     }
   }
+}
+
+function updateShieldRecharge(deltaTime) {
+  if (!shieldRechargeEnabled) return;
+
+  if (shieldCount >= MAX_SHIELD_COUNT) {
+    shieldRechargeTimer = 0;
+    return;
+  }
+
+  shieldRechargeTimer += deltaTime;
+
+  if (shieldRechargeTimer < shieldRechargeInterval) return;
+
+  shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+  shieldRechargeTimer = 0;
+  playSound('shield');
+}
+
+function collectExperience(value) {
+  if (dreamLevel >= MAX_DREAM_LEVEL) return;
+
+  dreamXp += value;
+  playSound('heal');
+
+  const requiredXp = getDreamXpRequirement(dreamLevel);
+  if (dreamXp < requiredXp) return;
+
+  dreamXp -= requiredXp;
+  dreamLevel = Math.min(MAX_DREAM_LEVEL, dreamLevel + 1);
+
+  if (dreamLevel >= MAX_DREAM_LEVEL) {
+    dreamXp = 0;
+  }
+
+  openAbilitySelection();
+}
+
+function getDreamXpRequirement(level) {
+  if (level >= MAX_DREAM_LEVEL) return 0;
+  return level + 2;
+}
+
+function openAbilitySelection() {
+  selectedAbilityChoices = getRandomAbilityChoices();
+
+  if (selectedAbilityChoices.length === 0) {
+    resumeGameAfterAbilitySelection();
+    return;
+  }
+
+  gameState = 'leveling';
+  pointerDirection = 0;
+  activePointerId = null;
+  closeSettingsPanel();
+  abilityMessage.textContent = `꿈 레벨 ${dreamLevel}에 도달했습니다. 강화할 힘을 하나 선택하세요.`;
+  renderAbilityOptions();
+  abilityLayer.classList.remove('hidden');
+  updateStatus();
+}
+
+function hideAbilitySelection() {
+  abilityLayer.classList.add('hidden');
+  abilityOptions.innerHTML = '';
+  selectedAbilityChoices = [];
+}
+
+function resumeGameAfterAbilitySelection() {
+  hideAbilitySelection();
+  lastTimestamp = 0;
+  gameState = 'playing';
+  animationId = requestAnimationFrame(gameLoop);
+}
+
+function renderAbilityOptions() {
+  abilityOptions.innerHTML = '';
+
+  selectedAbilityChoices.forEach((ability) => {
+    const button = document.createElement('button');
+    const currentStack = abilityUseCounts[ability.id] || 0;
+
+    button.className = 'ability-option';
+    button.type = 'button';
+    button.dataset.abilityId = ability.id;
+    button.innerHTML = `
+      <strong>${ability.name}</strong>
+      <span>${ability.tag}${currentStack > 0 ? ` Lv.${currentStack + 1}` : ''}</span>
+      <p>${ability.description}</p>
+    `;
+
+    abilityOptions.appendChild(button);
+  });
+}
+
+function getRandomAbilityChoices() {
+  const choices = [];
+  let availableAbilities = getAvailableAbilities();
+
+  while (choices.length < 3 && availableAbilities.length > 0) {
+    const selectedAbility = chooseWeightedAbility(availableAbilities);
+    choices.push(selectedAbility);
+    availableAbilities = availableAbilities.filter((ability) => ability.id !== selectedAbility.id);
+  }
+
+  return choices;
+}
+
+function getAvailableAbilities() {
+  return ABILITIES.filter((ability) => {
+    const useCount = abilityUseCounts[ability.id] || 0;
+
+    if (ability.gameLimit && useCount >= ability.gameLimit) return false;
+    if (ability.maxStacks && useCount >= ability.maxStacks) return false;
+
+    return true;
+  });
+}
+
+function chooseWeightedAbility(abilities) {
+  const totalWeight = abilities.reduce((total, ability) => total + ability.weight, 0);
+  let randomValue = Math.random() * totalWeight;
+
+  for (const ability of abilities) {
+    randomValue -= ability.weight;
+    if (randomValue <= 0) return ability;
+  }
+
+  return abilities[0];
+}
+
+function selectAbility(abilityId) {
+  const ability = selectedAbilityChoices.find((choice) => choice.id === abilityId);
+
+  if (!ability) return;
+
+  abilityUseCounts[ability.id] = (abilityUseCounts[ability.id] || 0) + 1;
+  applyAbilityEffect(ability.id);
+  resumeGameAfterAbilitySelection();
+}
+
+function applyAbilityEffect(abilityId) {
+  if (abilityId === 'flameDash') {
+    player.speed *= 1.08;
+    return;
+  }
+
+  if (abilityId === 'dreamAfterimage') {
+    player.hitbox = scaleHitboxRatio(player.hitbox, 0.82);
+    return;
+  }
+
+  if (abilityId === 'shardResonance') {
+    experienceMagnetRadius += 82;
+    return;
+  }
+
+  if (abilityId === 'consciousRekindle') {
+    shieldRechargeEnabled = true;
+    shieldRechargeTimer = 0;
+    shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+    return;
+  }
+
+  if (abilityId === 'slowNightmare') {
+    obstacleSpeedMultiplier *= 0.92;
+    return;
+  }
+
+  if (abilityId === 'dawnPurification') {
+    cleanseNightmares();
+    return;
+  }
+
+  if (abilityId === 'undyingEmber') {
+    maxLives = Math.min(ABILITY_MAX_LIFE_LIMIT, maxLives + 1);
+    lives = Math.min(maxLives, lives + 1);
+    return;
+  }
+
+  if (abilityId === 'lucidDream') {
+    scoreMultiplier += 0.25;
+  }
+}
+
+function scaleHitboxRatio(hitbox, scale) {
+  const nextWidth = hitbox.width * scale;
+  const nextHeight = hitbox.height * scale;
+
+  return {
+    x: hitbox.x + (hitbox.width - nextWidth) / 2,
+    y: hitbox.y + (hitbox.height - nextHeight) / 2,
+    width: nextWidth,
+    height: nextHeight
+  };
+}
+
+function cleanseNightmares() {
+  obstacles = obstacles.filter((_, index) => index % 3 === 0);
+  playSound('win');
+}
+
+function addScore(value) {
+  score += Math.max(1, Math.ceil(value * scoreMultiplier));
 }
 
 function movePlayer(deltaTime) {
@@ -885,6 +1282,25 @@ function spawnItem(phaseConfig) {
     hitbox: HITBOX_RATIOS.items[type] || FULL_HITBOX,
     age: 0,
     color: itemConfig.color
+  });
+}
+
+function spawnExperienceItem() {
+  const itemConfig = ITEM_TYPES.experience;
+  const size = itemConfig.size;
+
+  experienceItems.push({
+    type: 'experience',
+    x: randomNumber(14, canvas.width - size - 14),
+    y: -size,
+    width: size,
+    height: size,
+    size,
+    speed: itemConfig.speed + randomNumber(-14, 26),
+    hitbox: HITBOX_RATIOS.items.experience,
+    age: 0,
+    color: itemConfig.color,
+    value: 1
   });
 }
 
@@ -971,6 +1387,7 @@ function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBackground();
   drawItems();
+  drawExperienceItems();
   drawPlayer();
   drawObstacles();
   drawLevelGuide();
@@ -1231,9 +1648,44 @@ function drawItems() {
   });
 }
 
+function drawExperienceItems() {
+  experienceItems.forEach((item) => {
+    if (drawItemAsset(item)) return;
+    drawExperienceItem(item);
+  });
+}
+
 function drawItemAsset(item) {
   const image = gameAssets.items[item.type];
   return drawSpriteImage(image, item.x, item.y, item.size, item.size);
+}
+
+function drawExperienceItem(item) {
+  const cx = item.x + item.size / 2;
+  const cy = item.y + item.size / 2;
+  const r = item.size / 2;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(144, 246, 255, 0.9)';
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = '#90f6ff';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx + r * 0.62, cy);
+  ctx.lineTo(cx, cy + r);
+  ctx.lineTo(cx - r * 0.62, cy);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r * 0.58);
+  ctx.lineTo(cx + r * 0.24, cy);
+  ctx.lineTo(cx, cy + r * 0.58);
+  ctx.lineTo(cx - r * 0.24, cy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawShieldItem(item) {
@@ -1326,6 +1778,10 @@ function updateStatus() {
   levelText.textContent = getLevelLabel(currentLevel);
   lifeText.textContent = `${lives} / ${maxLives}`;
   shieldText.textContent = shieldCount;
+  dreamLevelText.textContent = `${dreamLevel} / ${MAX_DREAM_LEVEL}`;
+  dreamXpText.textContent = dreamLevel >= MAX_DREAM_LEVEL
+    ? 'MAX'
+    : `${dreamXp} / ${getDreamXpRequirement(dreamLevel)}`;
 }
 
 function getLevelLabel(level) {
@@ -1778,6 +2234,14 @@ bgmVolumeInput.addEventListener('input', (event) => {
 
 sfxVolumeInput.addEventListener('input', (event) => {
   updateSoundSetting('sfx', event.target.value);
+});
+
+abilityOptions.addEventListener('click', (event) => {
+  const optionButton = event.target.closest('.ability-option');
+
+  if (!optionButton) return;
+
+  selectAbility(optionButton.dataset.abilityId);
 });
 
 startButton.addEventListener('click', handleStartButtonClick);

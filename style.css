@@ -135,7 +135,7 @@ p {
   justify-content: flex-end;
   gap: 10px;
   flex-shrink: 0;
-  max-width: 470px;
+  max-width: 650px;
 }
 
 .status-box {
@@ -169,6 +169,14 @@ p {
 
 .shield-status strong {
   color: #8fd6ff;
+}
+
+.dream-status strong {
+  color: #d7b6ff;
+}
+
+.xp-status strong {
+  color: #90f6ff;
 }
 
 .canvas-area {
@@ -358,6 +366,96 @@ button:active {
   line-height: 1.55;
 }
 
+.ability-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  width: min(100%, 480px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(2, 4, 10, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.ability-dialog {
+  width: 100%;
+  padding: 18px;
+  border: 1px solid rgba(145, 246, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(8, 13, 24, 0.96);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.5);
+}
+
+.ability-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #90f6ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ability-dialog h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.ability-dialog p {
+  margin-top: 6px;
+  color: #c8d4ea;
+  font-size: 14px;
+}
+
+.ability-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.ability-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f5f7fb;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: left;
+  white-space: normal;
+}
+
+.ability-option:hover {
+  border-color: rgba(145, 246, 255, 0.48);
+  background: rgba(145, 246, 255, 0.13);
+}
+
+.ability-option strong {
+  display: block;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.ability-option span {
+  color: #90f6ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ability-option p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #c8d4ea;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .ranking-panel {
   margin-top: 18px;
   padding: 18px;
@@ -505,6 +603,22 @@ button:active {
 
   .status-box {
     flex: 1 1 30%;
+  }
+
+  .ability-layer {
+    padding: 12px;
+  }
+
+  .ability-dialog {
+    padding: 14px;
+  }
+
+  .ability-dialog h2 {
+    font-size: 21px;
+  }
+
+  .ability-option {
+    padding: 12px;
   }
 
   .record-row {

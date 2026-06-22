@@ -55,6 +55,14 @@
             <span>방패</span>
             <strong id="shieldText">0</strong>
           </div>
+          <div class="status-box dream-status">
+            <span>꿈 레벨</span>
+            <strong id="dreamLevelText">1 / 10</strong>
+          </div>
+          <div class="status-box xp-status">
+            <span>꿈 파편</span>
+            <strong id="dreamXpText">0 / 3</strong>
+          </div>
           <button
             id="settingsButton"
             class="settings-button"
@@ -110,6 +118,15 @@
             </div>
           </div>
         </div>
+
+        <div id="abilityLayer" class="ability-layer hidden" aria-live="assertive">
+          <div class="ability-dialog" role="dialog" aria-modal="true" aria-labelledby="abilityTitle">
+            <span class="ability-kicker">꿈의 불꽃이 흔들립니다</span>
+            <h2 id="abilityTitle">능력 선택</h2>
+            <p id="abilityMessage">강화할 힘을 하나 선택하세요.</p>
+            <div id="abilityOptions" class="ability-options"></div>
+          </div>
+        </div>
       </div>
 
       <section class="ranking-panel" aria-label="플레이 로그 순위">
@@ -129,7 +146,7 @@
         <p><strong>조작:</strong> 방향키 / A,D / 화면 좌우 터치</p>
         <p><strong>단계:</strong> 1단계 -> 2단계 -> 3단계 -> 무한모드</p>
         <p><strong>장애물:</strong> 일반 / 흔들림 / 오류</p>
-        <p><strong>아이템:</strong> 방패 / 회복 / 독버섯</p>
+        <p><strong>아이템:</strong> 방패 / 회복 / 독버섯 / 꿈 파편</p>
       </footer>
     </section>
   </main>
