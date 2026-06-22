@@ -10,6 +10,7 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMessage = document.getElementById('overlayMessage');
 const startButton = document.getElementById('startButton');
+const mainMenuButton = document.getElementById('mainMenuButton');
 const nicknameForm = document.getElementById('nicknameForm');
 const nicknameInput = document.getElementById('nicknameInput');
 const saveMessage = document.getElementById('saveMessage');
@@ -32,6 +33,7 @@ const dreamXpText = document.getElementById('dreamXpText');
 const abilityLayer = document.getElementById('abilityLayer');
 const abilityOptions = document.getElementById('abilityOptions');
 const abilityMessage = document.getElementById('abilityMessage');
+const pauseButton = document.getElementById('pauseButton');
 
 const GAME_TITLE = '악몽의 잔재';
 const INFINITE_MODE_START_TIME = 30;
@@ -50,7 +52,7 @@ const PLAYER_SIZE = 70;
 const PLAYER_BOTTOM_MARGIN = 20;
 const DEFAULT_BGM_VOLUME = 28;
 const DEFAULT_SFX_VOLUME = 55;
-const DEFAULT_OVERLAY_MESSAGE = '방향키 또는 A/D로 이동합니다. 모바일에서는 화면의 왼쪽이나 오른쪽을 누르세요. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.';
+const DEFAULT_OVERLAY_MESSAGE = '';
 const ABILITY_MAX_LIFE_LIMIT = 4;
 
 const FULL_HITBOX = {
@@ -483,8 +485,8 @@ function resetGame() {
   maxReachedLevel = 1;
   isInfiniteMode = false;
   enteredInfiniteMode = false;
-  maxLives = 1;
-  lives = 1;
+  maxLives = MAX_LIFE_LIMIT;
+  lives = MAX_LIFE_LIMIT;
   shieldCount = 0;
   pointerDirection = 0;
   activePointerId = null;
@@ -505,24 +507,37 @@ function resetGame() {
 
   hideNicknameForm();
   hideAbilitySelection();
+  hidePauseButton();
+  mainMenuButton.classList.add('hidden');
   replayTutorialButton.classList.remove('hidden');
   startButton.textContent = '게임 시작';
   overlayTitle.textContent = GAME_TITLE;
   overlayMessage.textContent = DEFAULT_OVERLAY_MESSAGE;
   updateStatus();
-  drawGame();
+  drawMainMenuBackground();
 }
 
-function startGame() {
+function startGame(options = {}) {
+  const shouldKeepBackgroundMusic = Boolean(options.keepBackgroundMusic);
+
   cancelAnimationFrame(animationId);
   unlockSounds();
-  stopAllSounds();
+  if (shouldKeepBackgroundMusic) {
+    stopEffectSounds();
+  } else {
+    stopAllSounds();
+  }
   resetGame();
   gameState = 'playing';
   playSound('start');
-  playBackgroundMusic();
+  if (shouldKeepBackgroundMusic) {
+    resumeBackgroundMusic();
+  } else {
+    playBackgroundMusic();
+  }
   overlay.classList.add('hidden');
   tutorialLayer.classList.add('hidden');
+  showPauseButton();
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -534,7 +549,7 @@ function endGame() {
   stopBackgroundMusic();
   playSound('lose');
 
-  const result = elapsedTime >= INFINITE_MODE_START_TIME ? 'infinite' : 'lose';
+  const result = enteredInfiniteMode ? 'infinite' : 'lose';
 
   pendingRecord = {
     result,
@@ -556,8 +571,20 @@ function endGame() {
 
   drawGameOverBackground(result);
   showNicknameForm();
+  hidePauseButton();
+  mainMenuButton.classList.remove('hidden');
   replayTutorialButton.classList.add('hidden');
   startButton.textContent = '다시 시작';
+  overlay.classList.remove('hidden');
+}
+
+function returnToMainMenu() {
+  cancelAnimationFrame(animationId);
+  stopAllSounds();
+  closeSettingsPanel();
+  closeTutorial();
+  hideAbilitySelection();
+  resetGame();
   overlay.classList.remove('hidden');
 }
 
@@ -572,12 +599,15 @@ function handleStartButtonClick() {
 
 function openTutorial() {
   cancelAnimationFrame(animationId);
-  stopAllSounds();
+  unlockSounds();
+  stopEffectSounds();
+  playBackgroundMusic();
   resetGame();
   closeSettingsPanel();
 
   gameState = 'tutorial';
   overlay.classList.add('hidden');
+  hidePauseButton();
   tutorialLayer.classList.remove('hidden');
   tutorialLayer.focus({ preventScroll: true });
   setTutorialStep(0);
@@ -591,7 +621,7 @@ function closeTutorial() {
 function finishTutorial() {
   markTutorialSeen();
   closeTutorial();
-  startGame();
+  startGame({ keepBackgroundMusic: true });
 }
 
 function advanceTutorial() {
@@ -790,8 +820,6 @@ function updateGame(deltaTime) {
 }
 
 function updateCurrentPhase() {
-  const previousLevel = currentLevel;
-
   if (elapsedTime >= INFINITE_MODE_START_TIME) {
     currentLevel = 4;
     currentPhase = getInfinitePhaseConfig();
@@ -811,15 +839,6 @@ function updateCurrentPhase() {
     currentPhase = levelConfig;
     maxReachedLevel = Math.max(maxReachedLevel, currentLevel);
   }
-
-  if (currentLevel > previousLevel && currentLevel <= 3) {
-    grantStageLife();
-  }
-}
-
-function grantStageLife() {
-  maxLives = Math.min(MAX_LIFE_LIMIT, maxLives + 1);
-  lives = Math.min(maxLives, lives + 1);
 }
 
 function updateObstacleSpawning() {
@@ -1069,6 +1088,7 @@ function openAbilitySelection() {
   pointerDirection = 0;
   activePointerId = null;
   closeSettingsPanel();
+  hidePauseButton();
   abilityMessage.textContent = `꿈 레벨 ${dreamLevel}에 도달했습니다. 강화할 힘을 하나 선택하세요.`;
   renderAbilityOptions();
   abilityLayer.classList.remove('hidden');
@@ -1083,8 +1103,59 @@ function hideAbilitySelection() {
 
 function resumeGameAfterAbilitySelection() {
   hideAbilitySelection();
+  showPauseButton();
   lastTimestamp = 0;
   gameState = 'playing';
+  animationId = requestAnimationFrame(gameLoop);
+}
+
+function showPauseButton() {
+  pauseButton.classList.remove('hidden');
+  setPauseButtonState(false);
+}
+
+function hidePauseButton() {
+  pauseButton.classList.add('hidden');
+  setPauseButtonState(false);
+}
+
+function setPauseButtonState(isPaused) {
+  pauseButton.classList.toggle('is-paused', isPaused);
+  pauseButton.textContent = isPaused ? '▶' : 'Ⅱ';
+  pauseButton.setAttribute('aria-label', isPaused ? '게임 계속하기' : '게임 일시정지');
+}
+
+function togglePause() {
+  if (gameState === 'playing') {
+    pauseGame();
+    return;
+  }
+
+  if (gameState === 'paused') {
+    resumePausedGame();
+  }
+}
+
+function pauseGame() {
+  if (gameState !== 'playing') return;
+
+  gameState = 'paused';
+  cancelAnimationFrame(animationId);
+  pointerDirection = 0;
+  activePointerId = null;
+  keys.left = false;
+  keys.right = false;
+  closeSettingsPanel();
+  setPauseButtonState(true);
+}
+
+function resumePausedGame() {
+  if (gameState !== 'paused') return;
+
+  gameState = 'playing';
+  lastTimestamp = 0;
+  setPauseButtonState(false);
+  resumeBackgroundMusic();
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -1432,6 +1503,13 @@ function drawBackground() {
   }
 }
 
+function drawMainMenuBackground() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#101723';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawCoverImage(gameAssets.backgrounds.gameoverBad, 0, 0, canvas.width, canvas.height);
+}
+
 function drawGameOverBackground(result) {
   const fallbackColor = result === 'infinite' ? '#160f22' : '#101723';
   const backgroundImage = result === 'infinite'
@@ -1458,7 +1536,12 @@ function loadGameImage(src) {
       return;
     }
 
-    if (gameState === 'ready' || gameState === 'playing') {
+    if (gameState === 'ready') {
+      drawMainMenuBackground();
+      return;
+    }
+
+    if (gameState === 'playing') {
       drawGame();
     }
   });
@@ -1769,7 +1852,7 @@ function drawHudMessage() {
   ctx.fillStyle = '#ffffff';
   ctx.font = '800 15px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('무한모드 진행 중', canvas.width / 2, 74);
+  ctx.fillText('기억하지 못하는 꿈', canvas.width / 2, 74);
 }
 
 function updateStatus() {
@@ -1777,7 +1860,9 @@ function updateStatus() {
   scoreText.textContent = score;
   levelText.textContent = getLevelLabel(currentLevel);
   lifeText.textContent = `${lives} / ${maxLives}`;
-  shieldText.textContent = shieldCount;
+  if (shieldText) {
+    shieldText.textContent = shieldCount;
+  }
   dreamLevelText.textContent = `${dreamLevel} / ${MAX_DREAM_LEVEL}`;
   dreamXpText.textContent = dreamLevel >= MAX_DREAM_LEVEL
     ? 'MAX'
@@ -1900,16 +1985,26 @@ function playBackgroundMusic() {
   });
 }
 
+function resumeBackgroundMusic() {
+  backgroundMusic.play().catch(() => {
+    // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
+  });
+}
+
 function stopBackgroundMusic() {
   backgroundMusic.pause();
   backgroundMusic.currentTime = 0;
 }
 
-function stopAllSounds() {
+function stopEffectSounds() {
   Object.values(sounds).forEach((sound) => {
     sound.pause();
     sound.currentTime = 0;
   });
+}
+
+function stopAllSounds() {
+  stopEffectSounds();
   stopBackgroundMusic();
 }
 
@@ -2236,6 +2331,11 @@ sfxVolumeInput.addEventListener('input', (event) => {
   updateSoundSetting('sfx', event.target.value);
 });
 
+pauseButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  togglePause();
+});
+
 abilityOptions.addEventListener('click', (event) => {
   const optionButton = event.target.closest('.ability-option');
 
@@ -2245,6 +2345,7 @@ abilityOptions.addEventListener('click', (event) => {
 });
 
 startButton.addEventListener('click', handleStartButtonClick);
+mainMenuButton.addEventListener('click', returnToMainMenu);
 replayTutorialButton.addEventListener('click', openTutorial);
 tutorialLayer.addEventListener('pointerup', handleTutorialAdvanceInput);
 nicknameForm.addEventListener('submit', saveCurrentRecord);

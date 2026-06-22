@@ -31,7 +31,6 @@
       <header class="game-header">
         <div>
           <h1>악몽의 잔재</h1>
-          <p>장애물과 함정 아이템을 피하고, 30초 이후 시작되는 무한모드에서 최대한 오래 버티세요.</p>
         </div>
 
         <div class="status-panel" aria-label="게임 상태">
@@ -49,11 +48,7 @@
           </div>
           <div class="status-box life-status">
             <span>목숨</span>
-            <strong id="lifeText">1 / 1</strong>
-          </div>
-          <div class="status-box shield-status">
-            <span>방패</span>
-            <strong id="shieldText">0</strong>
+            <strong id="lifeText">3 / 3</strong>
           </div>
           <div class="status-box dream-status">
             <span>꿈 레벨</span>
@@ -78,10 +73,11 @@
 
       <div class="canvas-area">
         <canvas id="gameCanvas" width="480" height="640" aria-label="악몽의 잔재 게임 화면"></canvas>
+        <button id="pauseButton" class="pause-button hidden" type="button" aria-label="게임 일시정지">Ⅱ</button>
 
         <div id="overlay" class="overlay">
           <h2 id="overlayTitle">악몽의 잔재</h2>
-          <p id="overlayMessage">방향키 또는 A/D로 이동합니다. 모바일에서는 화면의 왼쪽이나 오른쪽을 누르세요. 10초마다 단계가 상승하고, 30초 이후에는 무한모드로 진입합니다.</p>
+          <p id="overlayMessage"></p>
 
           <form id="nicknameForm" class="record-form hidden">
             <label for="nicknameInput">닉네임을 입력해주세요</label>
@@ -99,7 +95,8 @@
           </form>
 
           <button id="startButton" type="button">게임 시작</button>
-          <button id="replayTutorialButton" class="tutorial-replay-button" type="button">튜토리얼 다시 보기</button>
+          <button id="replayTutorialButton" class="tutorial-replay-button" type="button">튜토리얼</button>
+          <button id="mainMenuButton" class="secondary-button hidden" type="button">메인 화면</button>
         </div>
 
         <div id="tutorialLayer" class="tutorial-layer hidden" role="button" tabindex="0" aria-label="튜토리얼 대사 넘기기" aria-live="polite">
