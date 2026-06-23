@@ -9,71 +9,43 @@
 <body>
   <main class="game-wrapper">
     <section class="game-card">
-      <div id="soundSettingsPanel" class="settings-panel hidden" role="dialog" aria-label="사운드 설정">
-        <div class="settings-header">
-          <h2>사운드</h2>
-          <button id="closeSettingsButton" class="icon-button" type="button" aria-label="사운드 설정 닫기">×</button>
-        </div>
-
-        <label class="volume-control" for="bgmVolumeInput">
-          <span>BGM</span>
-          <input id="bgmVolumeInput" type="range" min="0" max="100" step="1" />
-          <strong id="bgmVolumeValue">28</strong>
-        </label>
-
-        <label class="volume-control" for="sfxVolumeInput">
-          <span>효과음</span>
-          <input id="sfxVolumeInput" type="range" min="0" max="100" step="1" />
-          <strong id="sfxVolumeValue">55</strong>
-        </label>
-      </div>
-
       <header class="game-header">
         <div>
           <h1>악몽의 잔재</h1>
-        </div>
-
-        <div class="status-panel" aria-label="게임 상태">
-          <div class="status-box">
-            <span>생존 시간</span>
-            <strong id="timeText">0.0</strong>
-          </div>
-          <div class="status-box">
-            <span>점수</span>
-            <strong id="scoreText">0</strong>
-          </div>
-          <div class="status-box level-status">
-            <span>현재 단계</span>
-            <strong id="levelText">1</strong>
-          </div>
-          <div class="status-box life-status">
-            <span>목숨</span>
-            <strong id="lifeText">3 / 3</strong>
-          </div>
-          <div class="status-box dream-status">
-            <span>꿈 레벨</span>
-            <strong id="dreamLevelText">1 / 10</strong>
-          </div>
-          <div class="status-box xp-status">
-            <span>꿈 파편</span>
-            <strong id="dreamXpText">0 / 3</strong>
-          </div>
-          <button
-            id="settingsButton"
-            class="settings-button"
-            type="button"
-            aria-label="사운드 설정 열기"
-            aria-expanded="false"
-            aria-controls="soundSettingsPanel"
-          >
-            ⚙
-          </button>
         </div>
       </header>
 
       <div class="canvas-area">
         <canvas id="gameCanvas" width="480" height="640" aria-label="악몽의 잔재 게임 화면"></canvas>
-        <button id="pauseButton" class="pause-button hidden" type="button" aria-label="게임 일시정지">Ⅱ</button>
+        <button
+          id="settingsButton"
+          class="settings-button hidden"
+          type="button"
+          aria-label="사운드 설정 열기"
+          aria-expanded="false"
+          aria-controls="soundSettingsPanel"
+        >
+          ⚙
+        </button>
+
+        <div id="soundSettingsPanel" class="settings-panel hidden" role="dialog" aria-label="사운드 설정">
+          <div class="settings-header">
+            <h2>사운드</h2>
+            <button id="closeSettingsButton" class="icon-button" type="button" aria-label="사운드 설정 닫기">×</button>
+          </div>
+
+          <label class="volume-control" for="bgmVolumeInput">
+            <span>BGM</span>
+            <input id="bgmVolumeInput" type="range" min="0" max="100" step="1" />
+            <strong id="bgmVolumeValue">28</strong>
+          </label>
+
+          <label class="volume-control" for="sfxVolumeInput">
+            <span>효과음</span>
+            <input id="sfxVolumeInput" type="range" min="0" max="100" step="1" />
+            <strong id="sfxVolumeValue">55</strong>
+          </label>
+        </div>
 
         <div id="overlay" class="overlay">
           <h2 id="overlayTitle">악몽의 잔재</h2>
@@ -96,6 +68,16 @@
 
           <button id="startButton" type="button">게임 시작</button>
           <button id="replayTutorialButton" class="tutorial-replay-button" type="button">튜토리얼</button>
+          <button
+            id="menuSettingsButton"
+            class="menu-settings-button"
+            type="button"
+            aria-label="사운드 설정 열기"
+            aria-expanded="false"
+            aria-controls="soundSettingsPanel"
+          >
+            설정
+          </button>
           <button id="mainMenuButton" class="secondary-button hidden" type="button">메인 화면</button>
         </div>
 
@@ -139,12 +121,6 @@
         <p id="emptyRankingText" class="empty-ranking">아직 저장된 기록이 없습니다.</p>
       </section>
 
-      <footer class="game-footer">
-        <p><strong>조작:</strong> 방향키 / A,D / 화면 좌우 터치</p>
-        <p><strong>단계:</strong> 1단계 -> 2단계 -> 3단계 -> 무한모드</p>
-        <p><strong>장애물:</strong> 일반 / 흔들림 / 오류</p>
-        <p><strong>아이템:</strong> 방패 / 회복 / 독버섯 / 꿈 파편</p>
-      </footer>
     </section>
   </main>
 

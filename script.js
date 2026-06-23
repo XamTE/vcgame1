@@ -1,11 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const timeText = document.getElementById('timeText');
-const scoreText = document.getElementById('scoreText');
-const levelText = document.getElementById('levelText');
-const lifeText = document.getElementById('lifeText');
-const shieldText = document.getElementById('shieldText');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMessage = document.getElementById('overlayMessage');
@@ -18,6 +13,7 @@ const rankingList = document.getElementById('rankingList');
 const emptyRankingText = document.getElementById('emptyRankingText');
 const clearRankingButton = document.getElementById('clearRankingButton');
 const settingsButton = document.getElementById('settingsButton');
+const menuSettingsButton = document.getElementById('menuSettingsButton');
 const soundSettingsPanel = document.getElementById('soundSettingsPanel');
 const closeSettingsButton = document.getElementById('closeSettingsButton');
 const bgmVolumeInput = document.getElementById('bgmVolumeInput');
@@ -28,12 +24,9 @@ const replayTutorialButton = document.getElementById('replayTutorialButton');
 const tutorialLayer = document.getElementById('tutorialLayer');
 const tutorialNpcName = document.getElementById('tutorialNpcName');
 const tutorialText = document.getElementById('tutorialText');
-const dreamLevelText = document.getElementById('dreamLevelText');
-const dreamXpText = document.getElementById('dreamXpText');
 const abilityLayer = document.getElementById('abilityLayer');
 const abilityOptions = document.getElementById('abilityOptions');
 const abilityMessage = document.getElementById('abilityMessage');
-const pauseButton = document.getElementById('pauseButton');
 
 const GAME_TITLE = '악몽의 잔재';
 const INFINITE_MODE_START_TIME = 30;
@@ -50,6 +43,10 @@ const MAX_LIFE_LIMIT = 3;
 const MAX_SHIELD_COUNT = 1;
 const PLAYER_SIZE = 70;
 const PLAYER_BOTTOM_MARGIN = 20;
+const HUD_HEART_SIZE = 18;
+const HUD_HEART_GAP = 5;
+const TUTORIAL_TYPING_INTERVAL = 20;
+const TUTORIAL_TYPING_CHARS_PER_TICK = 2;
 const DEFAULT_BGM_VOLUME = 28;
 const DEFAULT_SFX_VOLUME = 55;
 const DEFAULT_OVERLAY_MESSAGE = '';
@@ -133,7 +130,8 @@ const gameAssets = {
     shield: loadGameImage('asset/items/item_shield.png'),
     heal: loadGameImage('asset/items/item_heal.png'),
     poison: loadGameImage('asset/items/item_poison.png'),
-    experience: loadGameImage('asset/items/item_experience.png')
+    experience: loadGameImage('asset/items/item_experience.png'),
+    lifeHeart: loadGameImage('asset/items/ui_heart.svg')
   },
   player: {
     flame: loadGameImage('asset/player/player_flame.png')
@@ -453,6 +451,11 @@ let scoreMultiplier;
 let shieldRechargeEnabled;
 let shieldRechargeTimer;
 let shieldRechargeInterval;
+let didSettingsPauseGame = false;
+let tutorialTypingTimer = null;
+let tutorialTypingText = '';
+let tutorialTypingIndex = 0;
+let isTutorialTyping = false;
 
 function resetGame() {
   player = {
@@ -508,12 +511,13 @@ function resetGame() {
   hideNicknameForm();
   hideAbilitySelection();
   hidePauseButton();
+  hideGameSettingsButton();
+  showMenuSettingsButton();
   mainMenuButton.classList.add('hidden');
   replayTutorialButton.classList.remove('hidden');
   startButton.textContent = '게임 시작';
   overlayTitle.textContent = GAME_TITLE;
   overlayMessage.textContent = DEFAULT_OVERLAY_MESSAGE;
-  updateStatus();
   drawMainMenuBackground();
 }
 
@@ -528,6 +532,7 @@ function startGame(options = {}) {
     stopAllSounds();
   }
   resetGame();
+  closeSettingsPanel();
   gameState = 'playing';
   playSound('start');
   if (shouldKeepBackgroundMusic) {
@@ -538,6 +543,8 @@ function startGame(options = {}) {
   overlay.classList.add('hidden');
   tutorialLayer.classList.add('hidden');
   showPauseButton();
+  showGameSettingsButton();
+  hideMenuSettingsButton();
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -562,16 +569,19 @@ function endGame() {
   recordSaved = false;
 
   if (result === 'infinite') {
-    overlayTitle.textContent = '무한모드 종료';
-    overlayMessage.textContent = `무한모드에서 ${Number(elapsedTime).toFixed(1)}초까지 생존했습니다. 최종 점수: ${score}`;
+    overlayTitle.textContent = '기억하지 못하는 꿈 종료';
+    overlayMessage.textContent = `기억하지 못하는 꿈에서 ${Number(elapsedTime).toFixed(1)}초까지 생존했습니다. 최종 점수: ${score}`;
   } else {
     overlayTitle.textContent = '패배';
     overlayMessage.textContent = `${getStageDisplayText(maxReachedLevel)}에서 목숨을 모두 잃었습니다. 최종 점수: ${score}`;
   }
 
   drawGameOverBackground(result);
+  closeSettingsPanel();
   showNicknameForm();
   hidePauseButton();
+  hideGameSettingsButton();
+  hideMenuSettingsButton();
   mainMenuButton.classList.remove('hidden');
   replayTutorialButton.classList.add('hidden');
   startButton.textContent = '다시 시작';
@@ -608,12 +618,15 @@ function openTutorial() {
   gameState = 'tutorial';
   overlay.classList.add('hidden');
   hidePauseButton();
+  hideGameSettingsButton();
+  hideMenuSettingsButton();
   tutorialLayer.classList.remove('hidden');
   tutorialLayer.focus({ preventScroll: true });
   setTutorialStep(0);
 }
 
 function closeTutorial() {
+  cancelTutorialTyping();
   tutorialLayer.classList.add('hidden');
   tutorialDemoEntities = [];
 }
@@ -639,9 +652,9 @@ function setTutorialStep(index) {
   const dialogue = TUTORIAL_DIALOGUES[tutorialIndex];
 
   tutorialNpcName.textContent = dialogue.name;
-  tutorialText.textContent = dialogue.text;
   tutorialDemoEntities = createTutorialDemoEntities(dialogue.demos);
   drawTutorialFrame();
+  startTutorialTyping(dialogue.text);
 }
 
 function handleTutorialAdvanceInput(event) {
@@ -649,7 +662,68 @@ function handleTutorialAdvanceInput(event) {
 
   event.preventDefault();
   event.stopPropagation();
+
+  if (isTutorialTyping) {
+    completeTutorialTyping();
+    return;
+  }
+
   advanceTutorial();
+}
+
+function startTutorialTyping(text) {
+  cancelTutorialTyping();
+
+  tutorialTypingText = String(text || '');
+  tutorialTypingIndex = 0;
+  isTutorialTyping = tutorialTypingText.length > 0;
+  tutorialText.textContent = '';
+
+  if (!isTutorialTyping) return;
+
+  typeNextTutorialChunk();
+}
+
+function typeNextTutorialChunk() {
+  if (!isTutorialTyping) return;
+
+  tutorialTypingIndex = Math.min(
+    tutorialTypingText.length,
+    tutorialTypingIndex + TUTORIAL_TYPING_CHARS_PER_TICK
+  );
+  tutorialText.textContent = tutorialTypingText.slice(0, tutorialTypingIndex);
+
+  if (tutorialTypingIndex >= tutorialTypingText.length) {
+    isTutorialTyping = false;
+    tutorialTypingTimer = null;
+    return;
+  }
+
+  tutorialTypingTimer = window.setTimeout(typeNextTutorialChunk, TUTORIAL_TYPING_INTERVAL);
+}
+
+function completeTutorialTyping() {
+  if (!isTutorialTyping) return;
+
+  if (tutorialTypingTimer) {
+    clearTimeout(tutorialTypingTimer);
+  }
+
+  tutorialText.textContent = tutorialTypingText;
+  tutorialTypingIndex = tutorialTypingText.length;
+  tutorialTypingTimer = null;
+  isTutorialTyping = false;
+}
+
+function cancelTutorialTyping() {
+  if (tutorialTypingTimer) {
+    clearTimeout(tutorialTypingTimer);
+  }
+
+  tutorialTypingTimer = null;
+  tutorialTypingText = '';
+  tutorialTypingIndex = 0;
+  isTutorialTyping = false;
 }
 
 function createTutorialDemoEntities(demos) {
@@ -805,18 +879,15 @@ function updateGame(deltaTime) {
   updateExperienceItems(deltaTime);
   handleObstacleCollisions();
   if (gameState !== 'playing') {
-    updateStatus();
     return;
   }
 
   handleItemCollisions();
   if (gameState !== 'playing') {
-    updateStatus();
     return;
   }
 
   handleExperienceCollisions();
-  updateStatus();
 }
 
 function updateCurrentPhase() {
@@ -1004,7 +1075,6 @@ function applyDamage() {
 
   if (lives <= 0) {
     lives = 0;
-    updateStatus();
     endGame();
   }
 }
@@ -1029,7 +1099,6 @@ function applyItemEffect(itemType) {
 
     if (lives <= 0) {
       lives = 0;
-      updateStatus();
       endGame();
     }
   }
@@ -1089,10 +1158,10 @@ function openAbilitySelection() {
   activePointerId = null;
   closeSettingsPanel();
   hidePauseButton();
+  hideGameSettingsButton();
   abilityMessage.textContent = `꿈 레벨 ${dreamLevel}에 도달했습니다. 강화할 힘을 하나 선택하세요.`;
   renderAbilityOptions();
   abilityLayer.classList.remove('hidden');
-  updateStatus();
 }
 
 function hideAbilitySelection() {
@@ -1104,36 +1173,50 @@ function hideAbilitySelection() {
 function resumeGameAfterAbilitySelection() {
   hideAbilitySelection();
   showPauseButton();
+  showGameSettingsButton();
   lastTimestamp = 0;
   gameState = 'playing';
   animationId = requestAnimationFrame(gameLoop);
 }
 
 function showPauseButton() {
-  pauseButton.classList.remove('hidden');
-  setPauseButtonState(false);
+  showGameSettingsButton();
+  setGameSettingsButtonState(false);
 }
 
 function hidePauseButton() {
-  pauseButton.classList.add('hidden');
-  setPauseButtonState(false);
+  hideGameSettingsButton();
+  setGameSettingsButtonState(false);
 }
 
-function setPauseButtonState(isPaused) {
-  pauseButton.classList.toggle('is-paused', isPaused);
-  pauseButton.textContent = isPaused ? '▶' : 'Ⅱ';
-  pauseButton.setAttribute('aria-label', isPaused ? '게임 계속하기' : '게임 일시정지');
+function showGameSettingsButton() {
+  settingsButton.classList.remove('hidden');
 }
 
-function togglePause() {
+function hideGameSettingsButton() {
+  settingsButton.classList.add('hidden');
+}
+
+function showMenuSettingsButton() {
+  menuSettingsButton.classList.remove('hidden');
+}
+
+function hideMenuSettingsButton() {
+  menuSettingsButton.classList.add('hidden');
+}
+
+function setGameSettingsButtonState(isPaused) {
+  settingsButton.classList.toggle('is-paused', isPaused);
+  settingsButton.setAttribute('aria-label', isPaused ? '설정 닫고 게임 계속하기' : '사운드 설정 열기');
+}
+
+function openGameplaySettings() {
   if (gameState === 'playing') {
+    didSettingsPauseGame = true;
     pauseGame();
-    return;
   }
 
-  if (gameState === 'paused') {
-    resumePausedGame();
-  }
+  openSettingsPanel();
 }
 
 function pauseGame() {
@@ -1145,8 +1228,9 @@ function pauseGame() {
   activePointerId = null;
   keys.left = false;
   keys.right = false;
-  closeSettingsPanel();
-  setPauseButtonState(true);
+  setGameSettingsButtonState(true);
+  drawGame();
+  drawPauseMessage();
 }
 
 function resumePausedGame() {
@@ -1154,7 +1238,7 @@ function resumePausedGame() {
 
   gameState = 'playing';
   lastTimestamp = 0;
-  setPauseButtonState(false);
+  setGameSettingsButtonState(false);
   resumeBackgroundMusic();
   animationId = requestAnimationFrame(gameLoop);
 }
@@ -1463,6 +1547,10 @@ function drawGame() {
   drawObstacles();
   drawLevelGuide();
   drawHudMessage();
+  drawScoreHud();
+  drawLifeHud();
+  drawDreamLevelHud();
+  drawDreamXpGauge();
 }
 
 function drawBackground() {
@@ -1827,18 +1915,19 @@ function drawLevelGuide() {
     { label: '1단계', active: currentLevel === 1 },
     { label: '2단계', active: currentLevel === 2 },
     { label: '3단계', active: currentLevel === 3 },
-    { label: '무한', active: currentLevel === 4 }
+    { label: '기억하지 못하는 꿈', active: currentLevel === 4 }
   ];
   const guideWidth = canvas.width / guideItems.length;
 
   guideItems.forEach((guide, index) => {
     const x = index * guideWidth;
+    const fontSize = guide.label.length > 4 ? 10 : 13;
 
     ctx.fillStyle = guide.active ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.08)';
     ctx.fillRect(x + 7, 12, guideWidth - 14, 8);
 
     ctx.fillStyle = guide.active ? '#ffffff' : 'rgba(255, 255, 255, 0.45)';
-    ctx.font = '700 13px Arial';
+    ctx.font = `700 ${fontSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.fillText(guide.label, x + guideWidth / 2, 38);
   });
@@ -1855,28 +1944,146 @@ function drawHudMessage() {
   ctx.fillText('기억하지 못하는 꿈', canvas.width / 2, 74);
 }
 
-function updateStatus() {
-  timeText.textContent = elapsedTime.toFixed(1);
-  scoreText.textContent = score;
-  levelText.textContent = getLevelLabel(currentLevel);
-  lifeText.textContent = `${lives} / ${maxLives}`;
-  if (shieldText) {
-    shieldText.textContent = shieldCount;
-  }
-  dreamLevelText.textContent = `${dreamLevel} / ${MAX_DREAM_LEVEL}`;
-  dreamXpText.textContent = dreamLevel >= MAX_DREAM_LEVEL
-    ? 'MAX'
-    : `${dreamXp} / ${getDreamXpRequirement(dreamLevel)}`;
+function drawPauseMessage() {
+  ctx.save();
+  ctx.fillStyle = 'rgba(3, 6, 13, 0.42)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 34px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.82)';
+  ctx.shadowBlur = 10;
+  ctx.fillText('일시정지', canvas.width / 2, canvas.height / 2 - 126);
+  ctx.restore();
 }
 
-function getLevelLabel(level) {
-  if (level >= 4 || level === 'infinite') return '무한';
-  return String(level);
+function drawScoreHud() {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 16px Arial';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+  ctx.shadowBlur = 6;
+  ctx.fillText(`점수 ${score}`, canvas.width - 16, 52);
+  ctx.restore();
+}
+
+function drawLifeHud() {
+  const heartCount = Math.max(1, maxLives);
+  const totalWidth = heartCount * HUD_HEART_SIZE + (heartCount - 1) * HUD_HEART_GAP;
+  const startX = canvas.width - 16 - totalWidth;
+  const y = 76;
+
+  for (let index = 0; index < heartCount; index += 1) {
+    const x = startX + index * (HUD_HEART_SIZE + HUD_HEART_GAP);
+    const isActive = index < lives;
+
+    ctx.save();
+    ctx.globalAlpha = isActive ? 1 : 0.28;
+    ctx.shadowColor = isActive ? 'rgba(255, 95, 131, 0.72)' : 'transparent';
+    ctx.shadowBlur = isActive ? 8 : 0;
+
+    if (!drawSpriteImage(gameAssets.items.lifeHeart, x, y, HUD_HEART_SIZE, HUD_HEART_SIZE)) {
+      drawHudHeartFallback(x, y, HUD_HEART_SIZE, isActive);
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawDreamLevelHud() {
+  ctx.save();
+  ctx.fillStyle = '#d7b6ff';
+  ctx.font = '800 12px Arial';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
+  ctx.shadowBlur = 6;
+  ctx.fillText(`Dream Level  ${toRomanNumeral(dreamLevel)}`, canvas.width - 16, 101);
+  ctx.restore();
+}
+
+function drawHudHeartFallback(x, y, size, isActive) {
+  const cx = x + size / 2;
+  const cy = y + size / 2 + 1;
+  const scale = size / 30;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = isActive ? '#ff5f83' : '#5b6274';
+  ctx.strokeStyle = isActive ? '#ffd9e4' : 'rgba(255, 255, 255, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  ctx.bezierCurveTo(-20, -4, -12, -20, 0, -10);
+  ctx.bezierCurveTo(12, -20, 20, -4, 0, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawDreamXpGauge() {
+  const barX = 16;
+  const barY = canvas.height - 14;
+  const barWidth = canvas.width - barX * 2;
+  const barHeight = 8;
+  const requiredXp = getDreamXpRequirement(dreamLevel);
+  const progress = dreamLevel >= MAX_DREAM_LEVEL
+    ? 1
+    : clamp(requiredXp > 0 ? dreamXp / requiredXp : 0, 0, 1);
+  const fillWidth = Math.max(barHeight, barWidth * progress);
+  const fillGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+
+  fillGradient.addColorStop(0, '#6edfff');
+  fillGradient.addColorStop(0.58, '#b691ff');
+  fillGradient.addColorStop(1, '#ff7bd5');
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(4, 8, 16, 0.68)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  drawRoundedRect(barX, barY, barWidth, barHeight, barHeight / 2);
+  ctx.fill();
+  ctx.stroke();
+
+  if (progress > 0) {
+    ctx.shadowColor = 'rgba(144, 246, 255, 0.72)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = fillGradient;
+    ctx.beginPath();
+    drawRoundedRect(barX, barY, fillWidth, barHeight, barHeight / 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function getStageDisplayText(level) {
-  if (Number(level) >= 4 || level === 'infinite') return '무한모드';
+  if (Number(level) >= 4 || level === 'infinite') return '기억하지 못하는 꿈';
   return `${level}단계`;
+}
+
+function toRomanNumeral(value) {
+  const romanNumerals = [
+    '',
+    'I',
+    'II',
+    'III',
+    'IV',
+    'V',
+    'VI',
+    'VII',
+    'VIII',
+    'IX',
+    'X'
+  ];
+
+  return romanNumerals[clamp(Math.round(value), 1, MAX_DREAM_LEVEL)] || 'I';
 }
 
 function getSavedSoundSettings() {
@@ -1951,11 +2158,20 @@ function updateSoundSetting(settingName, value) {
 function openSettingsPanel() {
   soundSettingsPanel.classList.remove('hidden');
   settingsButton.setAttribute('aria-expanded', 'true');
+  menuSettingsButton.setAttribute('aria-expanded', 'true');
 }
 
 function closeSettingsPanel() {
+  const shouldResumeGame = didSettingsPauseGame && gameState === 'paused';
+
   soundSettingsPanel.classList.add('hidden');
   settingsButton.setAttribute('aria-expanded', 'false');
+  menuSettingsButton.setAttribute('aria-expanded', 'false');
+  didSettingsPauseGame = false;
+
+  if (shouldResumeGame) {
+    resumePausedGame();
+  }
 }
 
 function toggleSettingsPanel() {
@@ -2171,7 +2387,7 @@ function renderRankings() {
 }
 
 function getResultText(record) {
-  if (record.enteredInfiniteMode || record.result === 'infinite') return '무한모드';
+  if (record.enteredInfiniteMode || record.result === 'infinite') return '기억하지 못하는 꿈';
   if (record.result === 'win') return '승리';
   return '패배';
 }
@@ -2301,6 +2517,21 @@ canvas.addEventListener('lostpointercapture', endPointerInput);
 
 settingsButton.addEventListener('click', (event) => {
   event.stopPropagation();
+  if (gameState === 'playing' || gameState === 'paused') {
+    if (soundSettingsPanel.classList.contains('hidden')) {
+      openGameplaySettings();
+      return;
+    }
+
+    closeSettingsPanel();
+    return;
+  }
+
+  toggleSettingsPanel();
+});
+
+menuSettingsButton.addEventListener('click', (event) => {
+  event.stopPropagation();
   toggleSettingsPanel();
 });
 
@@ -2329,11 +2560,6 @@ bgmVolumeInput.addEventListener('input', (event) => {
 
 sfxVolumeInput.addEventListener('input', (event) => {
   updateSoundSetting('sfx', event.target.value);
-});
-
-pauseButton.addEventListener('click', (event) => {
-  event.stopPropagation();
-  togglePause();
 });
 
 abilityOptions.addEventListener('click', (event) => {
