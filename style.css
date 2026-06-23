@@ -53,6 +53,28 @@ body {
   background: #90f6ff;
 }
 
+.settings-button::after {
+  content: "Esc";
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: #dce8ff;
+  background: rgba(8, 13, 24, 0.76);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.settings-button.is-paused::after {
+  color: #10131a;
+  background: rgba(144, 246, 255, 0.86);
+}
+
 .settings-panel {
   position: absolute;
   top: 50%;
@@ -474,7 +496,7 @@ button:active {
 .ability-option {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 34px 1fr;
   gap: 8px 12px;
   align-items: center;
   padding: 13px 14px;
@@ -491,13 +513,43 @@ button:active {
   background: rgba(145, 246, 255, 0.13);
 }
 
+.ability-option:disabled {
+  cursor: default;
+}
+
+.ability-option.is-selected {
+  animation: ability-choice-flash 300ms ease-out both;
+}
+
+.ability-shortcut {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid rgba(145, 246, 255, 0.38);
+  border-radius: 8px;
+  color: #10131a;
+  background: #90f6ff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ability-copy {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: center;
+}
+
 .ability-option strong {
   display: block;
   color: #ffffff;
   font-size: 16px;
 }
 
-.ability-option span {
+.ability-option .ability-tag {
   color: #90f6ff;
   font-size: 12px;
   font-weight: 800;
@@ -509,6 +561,28 @@ button:active {
   color: #c8d4ea;
   font-size: 13px;
   line-height: 1.45;
+}
+
+@keyframes ability-choice-flash {
+  0% {
+    border-color: rgba(145, 246, 255, 0.36);
+    box-shadow: 0 0 0 rgba(145, 246, 255, 0);
+    transform: scale(1);
+  }
+
+  45% {
+    border-color: rgba(255, 255, 255, 0.95);
+    background: rgba(145, 246, 255, 0.22);
+    box-shadow: 0 0 28px rgba(145, 246, 255, 0.48);
+    transform: scale(1.015);
+  }
+
+  100% {
+    border-color: rgba(215, 182, 255, 0.76);
+    background: rgba(215, 182, 255, 0.16);
+    box-shadow: 0 0 18px rgba(215, 182, 255, 0.32);
+    transform: scale(1);
+  }
 }
 
 .artifact-layer {

@@ -59,6 +59,7 @@ const HUD_HEART_SIZE = 18;
 const HUD_HEART_GAP = 5;
 const TUTORIAL_TYPING_INTERVAL = 20;
 const TUTORIAL_TYPING_CHARS_PER_TICK = 2;
+const ABILITY_SELECTION_FLASH_DELAY = 300;
 const DEFAULT_BGM_VOLUME = 28;
 const DEFAULT_SFX_VOLUME = 55;
 const DEFAULT_OVERLAY_MESSAGE = '';
@@ -498,6 +499,7 @@ const sounds = {
   shieldBreak: new Audio('sounds/shield_break.mp3'),
   heal: new Audio('sounds/heal.mp3'),
   experience: new Audio('sounds/experience.mp3'),
+  levelUp: new Audio('sounds/level_up.mp3'),
   poison: new Audio('sounds/poison.wav'),
   win: new Audio('sounds/win.wav'),
   lose: new Audio('sounds/lose.wav')
@@ -560,6 +562,8 @@ let tutorialTypingTimer = null;
 let tutorialTypingText = '';
 let tutorialTypingIndex = 0;
 let isTutorialTyping = false;
+let isAbilitySelectionResolving = false;
+let abilitySelectionTimer = null;
 
 function resetGame() {
   player = {
@@ -606,6 +610,8 @@ function resetGame() {
   dreamXp = 0;
   selectedAbilityChoices = [];
   abilityUseCounts = {};
+  isAbilitySelectionResolving = false;
+  clearAbilitySelectionTimer();
   experienceMagnetRadius = 0;
   obstacleSpeedMultiplier = 1;
   scoreMultiplier = 1;
@@ -1294,9 +1300,18 @@ function openAbilitySelection() {
 }
 
 function hideAbilitySelection() {
+  clearAbilitySelectionTimer();
+  isAbilitySelectionResolving = false;
   abilityLayer.classList.add('hidden');
   abilityOptions.innerHTML = '';
   selectedAbilityChoices = [];
+}
+
+function clearAbilitySelectionTimer() {
+  if (!abilitySelectionTimer) return;
+
+  clearTimeout(abilitySelectionTimer);
+  abilitySelectionTimer = null;
 }
 
 function resumeGameAfterAbilitySelection() {
@@ -1422,7 +1437,7 @@ function resumePausedGame() {
 function renderAbilityOptions() {
   abilityOptions.innerHTML = '';
 
-  selectedAbilityChoices.forEach((ability) => {
+  selectedAbilityChoices.forEach((ability, index) => {
     const button = document.createElement('button');
     const currentStack = abilityUseCounts[ability.id] || 0;
 
@@ -1430,9 +1445,12 @@ function renderAbilityOptions() {
     button.type = 'button';
     button.dataset.abilityId = ability.id;
     button.innerHTML = `
-      <strong>${ability.name}</strong>
-      <span>${ability.tag}${currentStack > 0 ? ` Lv.${currentStack + 1}` : ''}</span>
-      <p>${ability.description}</p>
+      <span class="ability-shortcut">${index + 1}</span>
+      <span class="ability-copy">
+        <strong>${ability.name}</strong>
+        <span class="ability-tag">${ability.tag}${currentStack > 0 ? ` Lv.${currentStack + 1}` : ''}</span>
+        <p>${ability.description}</p>
+      </span>
     `;
 
     abilityOptions.appendChild(button);
@@ -1478,11 +1496,42 @@ function chooseWeightedAbility(abilities) {
 function selectAbility(abilityId) {
   const ability = selectedAbilityChoices.find((choice) => choice.id === abilityId);
 
-  if (!ability) return;
+  if (!ability || isAbilitySelectionResolving) return;
 
-  abilityUseCounts[ability.id] = (abilityUseCounts[ability.id] || 0) + 1;
-  applyAbilityEffect(ability.id);
-  resumeGameAfterAbilitySelection();
+  isAbilitySelectionResolving = true;
+
+  const selectedButton = Array.from(abilityOptions.querySelectorAll('.ability-option'))
+    .find((button) => button.dataset.abilityId === ability.id);
+
+  abilityOptions.querySelectorAll('.ability-option').forEach((button) => {
+    button.disabled = true;
+  });
+
+  if (selectedButton) {
+    selectedButton.classList.add('is-selected');
+  }
+
+  playSound('levelUp');
+
+  abilitySelectionTimer = setTimeout(() => {
+    abilitySelectionTimer = null;
+    abilityUseCounts[ability.id] = (abilityUseCounts[ability.id] || 0) + 1;
+    applyAbilityEffect(ability.id);
+    resumeGameAfterAbilitySelection();
+  }, ABILITY_SELECTION_FLASH_DELAY);
+}
+
+function selectAbilityByShortcut(event) {
+  if (gameState !== 'leveling' || event.ctrlKey || event.altKey || event.metaKey) return false;
+
+  const shortcutCodes = ['Digit1', 'Digit2', 'Digit3'];
+  const shortcutIndex = shortcutCodes.indexOf(event.code);
+
+  if (shortcutIndex < 0 || shortcutIndex >= selectedAbilityChoices.length) return false;
+
+  event.preventDefault();
+  selectAbility(selectedAbilityChoices[shortcutIndex].id);
+  return true;
 }
 
 function applyAbilityEffect(abilityId) {
@@ -3007,12 +3056,28 @@ soundSettingsPanel.addEventListener('click', (event) => {
 document.addEventListener('click', closeSettingsPanel);
 
 document.addEventListener('keydown', (event) => {
+  if (selectAbilityByShortcut(event)) {
+    return;
+  }
+
   if (gameState === 'tutorial' && (event.key === 'Enter' || event.key === ' ')) {
     handleTutorialAdvanceInput(event);
     return;
   }
 
   if (event.key === 'Escape') {
+    event.preventDefault();
+
+    if (gameState === 'playing') {
+      openGameplaySettings();
+      return;
+    }
+
+    if (gameState === 'paused') {
+      toggleSettingsPanel();
+      return;
+    }
+
     closeSettingsPanel();
     hideArtifactLayer();
   }
