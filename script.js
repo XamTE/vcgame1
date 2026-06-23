@@ -602,8 +602,7 @@ function resetGame() {
   lives = MAX_LIFE_LIMIT;
   maxShieldCount = MAX_SHIELD_COUNT;
   shieldCount = 0;
-  pointerDirection = 0;
-  activePointerId = null;
+  resetPointerInput();
   pendingRecord = null;
   recordSaved = false;
   tutorialIndex = 0;
@@ -1290,8 +1289,7 @@ function openAbilitySelection() {
   }
 
   gameState = 'leveling';
-  pointerDirection = 0;
-  activePointerId = null;
+  resetPointerInput();
   closeSettingsPanel();
   hidePauseButton();
   hideGameSettingsButton();
@@ -1415,8 +1413,7 @@ function pauseGame() {
 
   gameState = 'paused';
   cancelAnimationFrame(animationId);
-  pointerDirection = 0;
-  activePointerId = null;
+  resetPointerInput();
   keys.left = false;
   keys.right = false;
   setGameSettingsButtonState(true);
@@ -2992,6 +2989,22 @@ function updatePointerDirection(event) {
   pointerDirection = event.clientX < rect.left + rect.width / 2 ? -1 : 1;
 }
 
+function resetPointerInput(event) {
+  const pointerId = event?.pointerId ?? activePointerId;
+
+  if (
+    pointerId !== null
+    && pointerId !== undefined
+    && typeof canvas.hasPointerCapture === 'function'
+    && canvas.hasPointerCapture(pointerId)
+  ) {
+    canvas.releasePointerCapture(pointerId);
+  }
+
+  pointerDirection = 0;
+  activePointerId = null;
+}
+
 function startPointerInput(event) {
   if (gameState !== 'playing') return;
   if (activePointerId !== null && activePointerId !== event.pointerId) return;
@@ -3016,14 +3029,14 @@ function movePointerInput(event) {
 function endPointerInput(event) {
   if (event.pointerId !== activePointerId) return;
 
-  pointerDirection = 0;
-  activePointerId = null;
-
-  if (typeof canvas.hasPointerCapture === 'function' && canvas.hasPointerCapture(event.pointerId)) {
-    canvas.releasePointerCapture(event.pointerId);
-  }
-
+  resetPointerInput(event);
   event.preventDefault();
+}
+
+function cancelPointerInputOnExit(event) {
+  if (event.pointerId !== activePointerId) return;
+
+  resetPointerInput(event);
 }
 
 function isLeftMoveKey(event) {
@@ -3065,6 +3078,14 @@ canvas.addEventListener('pointermove', movePointerInput);
 canvas.addEventListener('pointerup', endPointerInput);
 canvas.addEventListener('pointercancel', endPointerInput);
 canvas.addEventListener('lostpointercapture', endPointerInput);
+canvas.addEventListener('pointerleave', cancelPointerInputOnExit);
+canvas.addEventListener('pointerout', cancelPointerInputOnExit);
+window.addEventListener('blur', resetPointerInput);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    resetPointerInput();
+  }
+});
 
 document.addEventListener('pointerdown', unlockSounds, { capture: true, once: true });
 document.addEventListener('touchstart', unlockSounds, { capture: true, once: true, passive: true });
