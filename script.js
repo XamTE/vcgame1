@@ -60,10 +60,10 @@ const HUD_HEART_GAP = 5;
 const TUTORIAL_TYPING_INTERVAL = 20;
 const TUTORIAL_TYPING_CHARS_PER_TICK = 2;
 const ABILITY_SELECTION_FLASH_DELAY = 300;
+const ABILITY_MAX_LIFE_BONUS = 1;
 const DEFAULT_BGM_VOLUME = 28;
 const DEFAULT_SFX_VOLUME = 55;
 const DEFAULT_OVERLAY_MESSAGE = '';
-const ABILITY_MAX_LIFE_LIMIT = 4;
 
 const FULL_HITBOX = {
   x: 0,
@@ -1568,8 +1568,8 @@ function applyAbilityEffect(abilityId) {
   }
 
   if (abilityId === 'undyingEmber') {
-    maxLives = Math.min(ABILITY_MAX_LIFE_LIMIT, maxLives + 1);
-    lives = Math.min(maxLives, lives + 1);
+    maxLives += ABILITY_MAX_LIFE_BONUS;
+    lives = Math.min(maxLives, lives + ABILITY_MAX_LIFE_BONUS);
     return;
   }
 
