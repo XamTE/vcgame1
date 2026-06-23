@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nightmare-remnants-v1';
+const CACHE_NAME = 'nightmare-remnants-v2';
 
 const APP_SHELL = [
   './',
@@ -7,7 +7,19 @@ const APP_SHELL = [
   './script.js',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './sounds/Background.mp3',
+  './sounds/start.wav',
+  './sounds/dodge.wav',
+  './sounds/hit.wav',
+  './sounds/shield.mp3',
+  './sounds/shield_break.mp3',
+  './sounds/heal.mp3',
+  './sounds/experience.mp3',
+  './sounds/level_up.mp3',
+  './sounds/poison.wav',
+  './sounds/win.wav',
+  './sounds/lose.wav'
 ];
 
 self.addEventListener('install', (event) => {

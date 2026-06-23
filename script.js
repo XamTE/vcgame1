@@ -509,6 +509,8 @@ const backgroundMusic = new Audio('sounds/Background.mp3');
 backgroundMusic.loop = true;
 backgroundMusic.preload = 'auto';
 
+const audioUseTokens = new WeakMap();
+
 Object.values(sounds).forEach((sound) => {
   sound.preload = 'auto';
 });
@@ -2601,13 +2603,23 @@ function saveSoundSettings() {
 }
 
 function applySoundSettings() {
-  backgroundMusic.volume = soundSettings.muted ? 0 : soundSettings.bgm / 100;
+  applyBackgroundMusicSettings();
 
   Object.values(sounds).forEach((sound) => {
-    sound.volume = soundSettings.muted ? 0 : soundSettings.sfx / 100;
+    applyEffectSoundSettings(sound);
   });
 
   syncSoundSettingsControls();
+}
+
+function applyBackgroundMusicSettings() {
+  backgroundMusic.muted = soundSettings.muted;
+  backgroundMusic.volume = soundSettings.muted ? 0 : soundSettings.bgm / 100;
+}
+
+function applyEffectSoundSettings(sound) {
+  sound.muted = soundSettings.muted;
+  sound.volume = soundSettings.muted ? 0 : soundSettings.sfx / 100;
 }
 
 function syncSoundSettingsControls() {
@@ -2673,6 +2685,8 @@ function playSound(soundName) {
 
   if (!sound) return;
 
+  markAudioElementInUse(sound);
+  applyEffectSoundSettings(sound);
   sound.currentTime = 0;
   sound.play().catch(() => {
     // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
@@ -2680,6 +2694,8 @@ function playSound(soundName) {
 }
 
 function playBackgroundMusic() {
+  markAudioElementInUse(backgroundMusic);
+  applyBackgroundMusicSettings();
   backgroundMusic.currentTime = 0;
   backgroundMusic.play().catch(() => {
     // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
@@ -2687,6 +2703,8 @@ function playBackgroundMusic() {
 }
 
 function resumeBackgroundMusic() {
+  markAudioElementInUse(backgroundMusic);
+  applyBackgroundMusicSettings();
   backgroundMusic.play().catch(() => {
     // 브라우저 자동 재생 정책으로 막히면 게임 진행은 그대로 유지합니다.
   });
@@ -2713,11 +2731,59 @@ function unlockSounds() {
   if (soundUnlocked) return;
 
   Object.values(sounds).forEach((sound) => {
-    sound.load();
+    primeAudioElement(sound);
   });
-  backgroundMusic.load();
+  primeAudioElement(backgroundMusic);
 
   soundUnlocked = true;
+}
+
+function markAudioElementInUse(audioElement) {
+  audioUseTokens.set(audioElement, getAudioElementToken(audioElement) + 1);
+}
+
+function getAudioElementToken(audioElement) {
+  return audioUseTokens.get(audioElement) || 0;
+}
+
+function primeAudioElement(audioElement) {
+  const unlockToken = getAudioElementToken(audioElement);
+  const previousMuted = audioElement.muted;
+  const previousVolume = audioElement.volume;
+
+  audioElement.load();
+  audioElement.muted = true;
+  audioElement.volume = 0;
+
+  let playPromise;
+
+  try {
+    playPromise = audioElement.play();
+  } catch (error) {
+    audioElement.muted = previousMuted;
+    audioElement.volume = previousVolume;
+    return;
+  }
+
+  const finishPrime = () => {
+    if (getAudioElementToken(audioElement) === unlockToken) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    }
+
+    audioElement.muted = previousMuted;
+    audioElement.volume = previousVolume;
+  };
+
+  if (playPromise && typeof playPromise.then === 'function') {
+    playPromise.then(finishPrime).catch(() => {
+      audioElement.muted = previousMuted;
+      audioElement.volume = previousVolume;
+    });
+    return;
+  }
+
+  finishPrime();
 }
 
 function showNicknameForm() {
@@ -2999,6 +3065,10 @@ canvas.addEventListener('pointermove', movePointerInput);
 canvas.addEventListener('pointerup', endPointerInput);
 canvas.addEventListener('pointercancel', endPointerInput);
 canvas.addEventListener('lostpointercapture', endPointerInput);
+
+document.addEventListener('pointerdown', unlockSounds, { capture: true, once: true });
+document.addEventListener('touchstart', unlockSounds, { capture: true, once: true, passive: true });
+document.addEventListener('keydown', unlockSounds, { capture: true, once: true });
 
 settingsButton.addEventListener('click', (event) => {
   event.stopPropagation();
