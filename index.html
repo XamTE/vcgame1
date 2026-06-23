@@ -34,6 +34,10 @@
             <button id="closeSettingsButton" class="icon-button" type="button" aria-label="사운드 설정 닫기">×</button>
           </div>
 
+          <button id="muteToggleButton" class="mute-toggle-button" type="button" aria-pressed="false">
+            음소거 OFF
+          </button>
+
           <label class="volume-control" for="bgmVolumeInput">
             <span>BGM</span>
             <input id="bgmVolumeInput" type="range" min="0" max="100" step="1" />
@@ -46,6 +50,12 @@
             <strong id="sfxVolumeValue">55</strong>
           </label>
         </div>
+
+        <button id="pauseArtifactButton" class="pause-artifact-button hidden" type="button" aria-label="선택한 유물 효과 보기">
+          <img id="pauseArtifactIcon" alt="" />
+          <span id="pauseArtifactName"></span>
+        </button>
+        <div id="pauseArtifactEffect" class="pause-artifact-effect hidden"></div>
 
         <div id="overlay" class="overlay">
           <h2 id="overlayTitle">악몽의 잔재</h2>
@@ -68,6 +78,7 @@
 
           <button id="startButton" type="button">게임 시작</button>
           <button id="replayTutorialButton" class="tutorial-replay-button" type="button">튜토리얼</button>
+          <button id="menuArtifactsButton" class="menu-artifacts-button" type="button">유물</button>
           <button
             id="menuSettingsButton"
             class="menu-settings-button"
@@ -104,6 +115,21 @@
             <h2 id="abilityTitle">능력 선택</h2>
             <p id="abilityMessage">강화할 힘을 하나 선택하세요.</p>
             <div id="abilityOptions" class="ability-options"></div>
+          </div>
+        </div>
+
+        <div id="artifactLayer" class="artifact-layer hidden" aria-live="polite">
+          <div class="artifact-dialog" role="dialog" aria-modal="true" aria-labelledby="artifactTitle">
+            <div class="artifact-header">
+              <div>
+                <span>꿈에 남은 흔적</span>
+                <h2 id="artifactTitle">유물</h2>
+              </div>
+              <button id="closeArtifactButton" class="icon-button" type="button" aria-label="유물 창 닫기">×</button>
+            </div>
+
+            <div id="artifactStats" class="artifact-stats"></div>
+            <div id="artifactList" class="artifact-list"></div>
           </div>
         </div>
       </div>

@@ -14,8 +14,18 @@ const emptyRankingText = document.getElementById('emptyRankingText');
 const clearRankingButton = document.getElementById('clearRankingButton');
 const settingsButton = document.getElementById('settingsButton');
 const menuSettingsButton = document.getElementById('menuSettingsButton');
+const menuArtifactsButton = document.getElementById('menuArtifactsButton');
+const artifactLayer = document.getElementById('artifactLayer');
+const artifactStats = document.getElementById('artifactStats');
+const artifactList = document.getElementById('artifactList');
+const closeArtifactButton = document.getElementById('closeArtifactButton');
+const pauseArtifactButton = document.getElementById('pauseArtifactButton');
+const pauseArtifactIcon = document.getElementById('pauseArtifactIcon');
+const pauseArtifactName = document.getElementById('pauseArtifactName');
+const pauseArtifactEffect = document.getElementById('pauseArtifactEffect');
 const soundSettingsPanel = document.getElementById('soundSettingsPanel');
 const closeSettingsButton = document.getElementById('closeSettingsButton');
+const muteToggleButton = document.getElementById('muteToggleButton');
 const bgmVolumeInput = document.getElementById('bgmVolumeInput');
 const bgmVolumeValue = document.getElementById('bgmVolumeValue');
 const sfxVolumeInput = document.getElementById('sfxVolumeInput');
@@ -38,9 +48,11 @@ const MAX_EXPERIENCE_ITEMS = 4;
 const RANKING_STORAGE_KEY = 'dodgeGameRankings';
 const SOUND_SETTINGS_STORAGE_KEY = 'dodgeGameSoundSettings';
 const TUTORIAL_STORAGE_KEY = 'dodgeGameTutorialSeen';
+const ARTIFACT_STORAGE_KEY = 'nightmareArtifactProgress';
 const MAX_RANKING_COUNT = 10;
 const MAX_LIFE_LIMIT = 3;
 const MAX_SHIELD_COUNT = 1;
+const ARTIFACT_UNLOCK_REQUIREMENT = 50;
 const PLAYER_SIZE = 70;
 const PLAYER_BOTTOM_MARGIN = 20;
 const HUD_HEART_SIZE = 18;
@@ -183,7 +195,7 @@ const TUTORIAL_DIALOGUES = [
   },
   {
     name: '꿈 관리자',
-    text: '하지만 깨진 검은 심장은 독극물이야. 닿으면 목숨을 잃어.',
+    text: '깨진 검은 심장은 독극물이야. 닿으면 목숨을 잃어.',
     demos: [{ category: 'items', type: 'poison' }]
   },
   {
@@ -324,6 +336,93 @@ const ITEM_TYPES = {
   }
 };
 
+const ARTIFACT_STAT_LABELS = {
+  items: {
+    shield: '방패 획득',
+    heal: '회복 획득',
+    poison: '깨진 검은 심장 접촉',
+    experience: '꿈 파편 획득'
+  },
+  obstacles: {
+    normal: '악몽의 잔재 회피',
+    wave: '흔들리는 잔재 회피',
+    glitch: '뒤틀린 잔재 회피'
+  }
+};
+
+const ARTIFACTS = [
+  {
+    id: 'emberStep',
+    name: '잔재를 가르는 불씨',
+    iconSrc: 'asset/artifacts/ember_step.svg',
+    statGroup: 'obstacles',
+    statKey: 'normal',
+    condition: '악몽의 잔재 회피 50회 달성',
+    effectText: '의식의 불꽃 이동속도 +5%',
+    effect: { type: 'playerSpeedMultiplier', value: 1.05 }
+  },
+  {
+    id: 'swayingCompass',
+    name: '흔들림의 나침반',
+    iconSrc: 'asset/artifacts/swaying_compass.svg',
+    statGroup: 'obstacles',
+    statKey: 'wave',
+    condition: '흔들리는 잔재 회피 50회 달성',
+    effectText: '떨어지는 잔재 속도 -5%',
+    effect: { type: 'obstacleSpeedMultiplier', value: 0.95 }
+  },
+  {
+    id: 'distortionLens',
+    name: '뒤틀림의 렌즈',
+    iconSrc: 'asset/artifacts/distortion_lens.svg',
+    statGroup: 'obstacles',
+    statKey: 'glitch',
+    condition: '뒤틀린 잔재 회피 50회 달성',
+    effectText: '의식의 불꽃 충돌 판정 -5%',
+    effect: { type: 'playerHitboxScale', value: 0.95 }
+  },
+  {
+    id: 'guardianCrest',
+    name: '수호몽의 문장',
+    iconSrc: 'asset/artifacts/guardian_crest.svg',
+    statGroup: 'items',
+    statKey: 'shield',
+    condition: '방패 아이템 획득 50회 달성',
+    effectText: '방패 최대 충전 횟수 +1',
+    effect: { type: 'maxShieldBonus', value: 1 }
+  },
+  {
+    id: 'morningHeart',
+    name: '새벽의 심장',
+    iconSrc: 'asset/artifacts/morning_heart.svg',
+    statGroup: 'items',
+    statKey: 'heal',
+    condition: '회복 아이템 획득 50회 달성',
+    effectText: '최대 목숨 +1',
+    effect: { type: 'maxLifeBonus', value: 1 }
+  },
+  {
+    id: 'blackHeartVow',
+    name: '검은 심장의 맹세',
+    iconSrc: 'asset/artifacts/black_heart_vow.svg',
+    statGroup: 'items',
+    statKey: 'poison',
+    condition: '깨진 검은 심장 접촉 50회 달성',
+    effectText: '깨진 검은 심장 피해 무효, 접촉 시 꿈 파편 경험치 +1',
+    effect: { type: 'poisonToDreamXp', value: 1 }
+  },
+  {
+    id: 'dreamShardPrism',
+    name: '꿈 파편의 프리즘',
+    iconSrc: 'asset/artifacts/dream_shard_prism.svg',
+    statGroup: 'items',
+    statKey: 'experience',
+    condition: '꿈 파편 획득 50회 달성',
+    effectText: '꿈 파편 흡수 범위 증가',
+    effect: { type: 'experienceMagnetBonus', value: 70 }
+  }
+];
+
 const ABILITIES = [
   {
     id: 'flameDash',
@@ -395,8 +494,10 @@ const sounds = {
   start: new Audio('sounds/start.wav'),
   dodge: new Audio('sounds/dodge.wav'),
   hit: new Audio('sounds/hit.wav'),
-  shield: new Audio('sounds/shield.wav'),
-  heal: new Audio('sounds/heal.wav'),
+  shield: new Audio('sounds/shield.mp3'),
+  shieldBreak: new Audio('sounds/shield_break.mp3'),
+  heal: new Audio('sounds/heal.mp3'),
+  experience: new Audio('sounds/experience.mp3'),
   poison: new Audio('sounds/poison.wav'),
   win: new Audio('sounds/win.wav'),
   lose: new Audio('sounds/lose.wav')
@@ -412,6 +513,7 @@ Object.values(sounds).forEach((sound) => {
 
 let soundSettings = getSavedSoundSettings();
 applySoundSettings();
+let artifactProgress = getSavedArtifactProgress();
 
 let player;
 let obstacles;
@@ -433,6 +535,7 @@ let isInfiniteMode;
 let enteredInfiniteMode;
 let maxLives;
 let lives;
+let maxShieldCount;
 let shieldCount;
 let pointerDirection = 0;
 let activePointerId = null;
@@ -452,6 +555,7 @@ let shieldRechargeEnabled;
 let shieldRechargeTimer;
 let shieldRechargeInterval;
 let didSettingsPauseGame = false;
+let poisonToDreamXpEnabled = false;
 let tutorialTypingTimer = null;
 let tutorialTypingText = '';
 let tutorialTypingIndex = 0;
@@ -490,6 +594,7 @@ function resetGame() {
   enteredInfiniteMode = false;
   maxLives = MAX_LIFE_LIMIT;
   lives = MAX_LIFE_LIMIT;
+  maxShieldCount = MAX_SHIELD_COUNT;
   shieldCount = 0;
   pointerDirection = 0;
   activePointerId = null;
@@ -507,12 +612,18 @@ function resetGame() {
   shieldRechargeEnabled = false;
   shieldRechargeTimer = 0;
   shieldRechargeInterval = 15;
+  poisonToDreamXpEnabled = false;
+
+  applySelectedArtifactEffect();
 
   hideNicknameForm();
   hideAbilitySelection();
+  hidePauseArtifactSummary();
+  hideArtifactLayer();
   hidePauseButton();
   hideGameSettingsButton();
   showMenuSettingsButton();
+  showMenuArtifactsButton();
   mainMenuButton.classList.add('hidden');
   replayTutorialButton.classList.remove('hidden');
   startButton.textContent = '게임 시작';
@@ -545,6 +656,8 @@ function startGame(options = {}) {
   showPauseButton();
   showGameSettingsButton();
   hideMenuSettingsButton();
+  hideMenuArtifactsButton();
+  hideArtifactLayer();
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -581,7 +694,10 @@ function endGame() {
   showNicknameForm();
   hidePauseButton();
   hideGameSettingsButton();
+  hidePauseArtifactSummary();
   hideMenuSettingsButton();
+  hideMenuArtifactsButton();
+  hideArtifactLayer();
   mainMenuButton.classList.remove('hidden');
   replayTutorialButton.classList.add('hidden');
   startButton.textContent = '다시 시작';
@@ -619,7 +735,10 @@ function openTutorial() {
   overlay.classList.add('hidden');
   hidePauseButton();
   hideGameSettingsButton();
+  hidePauseArtifactSummary();
   hideMenuSettingsButton();
+  hideMenuArtifactsButton();
+  hideArtifactLayer();
   tutorialLayer.classList.remove('hidden');
   tutorialLayer.focus({ preventScroll: true });
   setTutorialStep(0);
@@ -978,6 +1097,7 @@ function updateObstacles(deltaTime) {
 
   obstacles = obstacles.filter((obstacle) => {
     if (obstacle.y > canvas.height) {
+      recordObstacleDodge(obstacle.type);
       addScore(getScoreValue(obstacle.level));
       playSound('dodge');
       return false;
@@ -1041,6 +1161,7 @@ function handleItemCollisions() {
   items.forEach((item, index) => {
     if (isCollidingWithPlayer(item)) {
       collectedIndexes.push(index);
+      recordItemCollection(item.type);
       applyItemEffect(item.type);
     }
   });
@@ -1054,6 +1175,7 @@ function handleExperienceCollisions() {
   experienceItems.forEach((item, index) => {
     if (isCollidingWithPlayer(item)) {
       collectedIndexes.push(index);
+      recordItemCollection('experience');
       collectExperience(item.value);
     }
   });
@@ -1065,7 +1187,7 @@ function applyDamage() {
   if (shieldCount > 0) {
     shieldCount -= 1;
     player.invincibleTimer = 0.9;
-    playSound('shield');
+    playSound('shieldBreak');
     return;
   }
 
@@ -1081,7 +1203,7 @@ function applyDamage() {
 
 function applyItemEffect(itemType) {
   if (itemType === 'shield') {
-    shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+    shieldCount = Math.min(maxShieldCount, shieldCount + 1);
     playSound('shield');
     return;
   }
@@ -1093,6 +1215,12 @@ function applyItemEffect(itemType) {
   }
 
   if (itemType === 'poison') {
+    if (poisonToDreamXpEnabled) {
+      player.invincibleTimer = 0.8;
+      collectExperience(1);
+      return;
+    }
+
     lives -= 1;
     player.invincibleTimer = 0.8;
     playSound('poison');
@@ -1107,7 +1235,7 @@ function applyItemEffect(itemType) {
 function updateShieldRecharge(deltaTime) {
   if (!shieldRechargeEnabled) return;
 
-  if (shieldCount >= MAX_SHIELD_COUNT) {
+  if (shieldCount >= maxShieldCount) {
     shieldRechargeTimer = 0;
     return;
   }
@@ -1116,7 +1244,7 @@ function updateShieldRecharge(deltaTime) {
 
   if (shieldRechargeTimer < shieldRechargeInterval) return;
 
-  shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+  shieldCount = Math.min(maxShieldCount, shieldCount + 1);
   shieldRechargeTimer = 0;
   playSound('shield');
 }
@@ -1125,7 +1253,7 @@ function collectExperience(value) {
   if (dreamLevel >= MAX_DREAM_LEVEL) return;
 
   dreamXp += value;
-  playSound('heal');
+  playSound('experience');
 
   const requiredXp = getDreamXpRequirement(dreamLevel);
   if (dreamXp < requiredXp) return;
@@ -1159,6 +1287,7 @@ function openAbilitySelection() {
   closeSettingsPanel();
   hidePauseButton();
   hideGameSettingsButton();
+  hidePauseArtifactSummary();
   abilityMessage.textContent = `꿈 레벨 ${dreamLevel}에 도달했습니다. 강화할 힘을 하나 선택하세요.`;
   renderAbilityOptions();
   abilityLayer.classList.remove('hidden');
@@ -1205,6 +1334,51 @@ function hideMenuSettingsButton() {
   menuSettingsButton.classList.add('hidden');
 }
 
+function showMenuArtifactsButton() {
+  menuArtifactsButton.classList.remove('hidden');
+}
+
+function hideMenuArtifactsButton() {
+  menuArtifactsButton.classList.add('hidden');
+}
+
+function openArtifactLayer() {
+  closeSettingsPanel();
+  renderArtifacts();
+  artifactLayer.classList.remove('hidden');
+}
+
+function hideArtifactLayer() {
+  artifactLayer.classList.add('hidden');
+}
+
+function showPauseArtifactSummary() {
+  const selectedArtifact = getSelectedArtifact();
+
+  if (!selectedArtifact) {
+    hidePauseArtifactSummary();
+    return;
+  }
+
+  pauseArtifactIcon.src = selectedArtifact.iconSrc;
+  pauseArtifactIcon.alt = selectedArtifact.name;
+  pauseArtifactName.textContent = selectedArtifact.name;
+  pauseArtifactEffect.textContent = selectedArtifact.effectText;
+  pauseArtifactEffect.classList.add('hidden');
+  pauseArtifactButton.classList.remove('hidden');
+}
+
+function hidePauseArtifactSummary() {
+  pauseArtifactButton.classList.add('hidden');
+  pauseArtifactEffect.classList.add('hidden');
+}
+
+function togglePauseArtifactEffect() {
+  if (pauseArtifactButton.classList.contains('hidden')) return;
+
+  pauseArtifactEffect.classList.toggle('hidden');
+}
+
 function setGameSettingsButtonState(isPaused) {
   settingsButton.classList.toggle('is-paused', isPaused);
   settingsButton.setAttribute('aria-label', isPaused ? '설정 닫고 게임 계속하기' : '사운드 설정 열기');
@@ -1231,6 +1405,7 @@ function pauseGame() {
   setGameSettingsButtonState(true);
   drawGame();
   drawPauseMessage();
+  showPauseArtifactSummary();
 }
 
 function resumePausedGame() {
@@ -1239,6 +1414,7 @@ function resumePausedGame() {
   gameState = 'playing';
   lastTimestamp = 0;
   setGameSettingsButtonState(false);
+  hidePauseArtifactSummary();
   resumeBackgroundMusic();
   animationId = requestAnimationFrame(gameLoop);
 }
@@ -1328,7 +1504,7 @@ function applyAbilityEffect(abilityId) {
   if (abilityId === 'consciousRekindle') {
     shieldRechargeEnabled = true;
     shieldRechargeTimer = 0;
-    shieldCount = Math.min(MAX_SHIELD_COUNT, shieldCount + 1);
+    shieldCount = Math.min(maxShieldCount, shieldCount + 1);
     return;
   }
 
@@ -1696,12 +1872,21 @@ function drawPlayer() {
 
   if (shieldCount > 0) {
     const hitbox = getEntityHitbox(player);
+    const isOverchargedShield = shieldCount >= 2;
 
-    ctx.strokeStyle = 'rgba(100, 210, 255, 0.85)';
+    ctx.strokeStyle = isOverchargedShield ? 'rgba(255, 95, 131, 0.95)' : 'rgba(100, 210, 255, 0.85)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     drawRoundedRect(hitbox.x - 8, hitbox.y - 8, hitbox.width + 16, hitbox.height + 16, 14);
     ctx.stroke();
+
+    if (isOverchargedShield) {
+      ctx.strokeStyle = 'rgba(255, 217, 228, 0.74)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      drawRoundedRect(hitbox.x - 14, hitbox.y - 14, hitbox.width + 28, hitbox.height + 28, 18);
+      ctx.stroke();
+    }
   }
 
   ctx.globalAlpha = 1;
@@ -2086,13 +2271,249 @@ function toRomanNumeral(value) {
   return romanNumerals[clamp(Math.round(value), 1, MAX_DREAM_LEVEL)] || 'I';
 }
 
+function createDefaultArtifactProgress() {
+  return {
+    items: {
+      shield: 0,
+      heal: 0,
+      poison: 0,
+      experience: 0
+    },
+    obstacles: {
+      normal: 0,
+      wave: 0,
+      glitch: 0
+    },
+    selectedArtifactId: ''
+  };
+}
+
+function getSavedArtifactProgress() {
+  try {
+    const savedProgress = localStorage.getItem(ARTIFACT_STORAGE_KEY);
+    return normalizeArtifactProgress(savedProgress ? JSON.parse(savedProgress) : null);
+  } catch (error) {
+    return createDefaultArtifactProgress();
+  }
+}
+
+function normalizeArtifactProgress(progress) {
+  const defaultProgress = createDefaultArtifactProgress();
+  const normalizedProgress = createDefaultArtifactProgress();
+
+  Object.keys(defaultProgress.items).forEach((key) => {
+    normalizedProgress.items[key] = normalizeArtifactCount(progress?.items?.[key]);
+  });
+
+  Object.keys(defaultProgress.obstacles).forEach((key) => {
+    normalizedProgress.obstacles[key] = normalizeArtifactCount(progress?.obstacles?.[key]);
+  });
+
+  normalizedProgress.selectedArtifactId = ARTIFACTS.some((artifact) => artifact.id === progress?.selectedArtifactId)
+    ? progress.selectedArtifactId
+    : '';
+
+  return normalizedProgress;
+}
+
+function normalizeArtifactCount(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) return 0;
+
+  return Math.floor(numericValue);
+}
+
+function saveArtifactProgress() {
+  try {
+    localStorage.setItem(ARTIFACT_STORAGE_KEY, JSON.stringify(artifactProgress));
+  } catch (error) {
+    // 저장소를 사용할 수 없어도 현재 세션의 유물 진행은 유지합니다.
+  }
+}
+
+function recordItemCollection(itemType) {
+  recordArtifactStat('items', itemType);
+}
+
+function recordObstacleDodge(obstacleType) {
+  recordArtifactStat('obstacles', obstacleType);
+}
+
+function recordArtifactStat(groupName, statKey) {
+  if (!artifactProgress[groupName] || typeof artifactProgress[groupName][statKey] !== 'number') return;
+
+  artifactProgress[groupName][statKey] += 1;
+  saveArtifactProgress();
+}
+
+function getArtifactCount(artifact) {
+  return artifactProgress[artifact.statGroup]?.[artifact.statKey] || 0;
+}
+
+function isArtifactUnlocked(artifact) {
+  return getArtifactCount(artifact) >= ARTIFACT_UNLOCK_REQUIREMENT;
+}
+
+function getSelectedArtifact() {
+  const selectedArtifact = ARTIFACTS.find((artifact) => artifact.id === artifactProgress.selectedArtifactId);
+
+  if (!selectedArtifact || !isArtifactUnlocked(selectedArtifact)) return null;
+
+  return selectedArtifact;
+}
+
+function applySelectedArtifactEffect() {
+  const selectedArtifact = getSelectedArtifact();
+
+  if (!selectedArtifact) return;
+
+  const { effect } = selectedArtifact;
+
+  if (effect.type === 'playerSpeedMultiplier') {
+    player.speed *= effect.value;
+    return;
+  }
+
+  if (effect.type === 'obstacleSpeedMultiplier') {
+    obstacleSpeedMultiplier *= effect.value;
+    return;
+  }
+
+  if (effect.type === 'playerHitboxScale') {
+    player.hitbox = scaleHitboxRatio(player.hitbox, effect.value);
+    return;
+  }
+
+  if (effect.type === 'maxShieldBonus') {
+    maxShieldCount += effect.value;
+    return;
+  }
+
+  if (effect.type === 'maxLifeBonus') {
+    maxLives += effect.value;
+    lives += effect.value;
+    return;
+  }
+
+  if (effect.type === 'poisonToDreamXp') {
+    poisonToDreamXpEnabled = true;
+    return;
+  }
+
+  if (effect.type === 'experienceMagnetBonus') {
+    experienceMagnetRadius += effect.value;
+  }
+}
+
+function renderArtifacts() {
+  const selectedArtifact = getSelectedArtifact();
+
+  if (artifactProgress.selectedArtifactId && !selectedArtifact) {
+    artifactProgress.selectedArtifactId = '';
+    saveArtifactProgress();
+  }
+
+  renderArtifactStats();
+  renderArtifactCards();
+}
+
+function renderArtifactStats() {
+  artifactStats.innerHTML = '';
+
+  Object.entries(ARTIFACT_STAT_LABELS.items).forEach(([key, label]) => {
+    artifactStats.appendChild(createArtifactStatElement(label, artifactProgress.items[key]));
+  });
+
+  Object.entries(ARTIFACT_STAT_LABELS.obstacles).forEach(([key, label]) => {
+    artifactStats.appendChild(createArtifactStatElement(label, artifactProgress.obstacles[key]));
+  });
+}
+
+function createArtifactStatElement(label, count) {
+  const stat = document.createElement('div');
+  stat.className = 'artifact-stat';
+
+  const statLabel = document.createElement('span');
+  statLabel.textContent = label;
+
+  const statValue = document.createElement('strong');
+  statValue.textContent = `${count || 0}회`;
+
+  stat.append(statLabel, statValue);
+  return stat;
+}
+
+function renderArtifactCards() {
+  artifactList.innerHTML = '';
+
+  ARTIFACTS.forEach((artifact) => {
+    const count = getArtifactCount(artifact);
+    const isUnlocked = isArtifactUnlocked(artifact);
+    const isSelected = artifactProgress.selectedArtifactId === artifact.id && isUnlocked;
+    const progressRatio = clamp(count / ARTIFACT_UNLOCK_REQUIREMENT, 0, 1);
+    const card = document.createElement('article');
+    card.className = `artifact-card${isUnlocked ? '' : ' is-locked'}${isSelected ? ' is-selected' : ''}`;
+
+    const header = document.createElement('div');
+    header.className = 'artifact-card-header';
+
+    const copy = document.createElement('div');
+    copy.className = 'artifact-card-copy';
+
+    const title = document.createElement('h3');
+    title.textContent = artifact.name;
+
+    const icon = document.createElement('img');
+    icon.className = 'artifact-icon';
+    icon.src = artifact.iconSrc;
+    icon.alt = artifact.name;
+
+    const condition = document.createElement('p');
+    condition.textContent = `${artifact.condition} (${Math.min(count, ARTIFACT_UNLOCK_REQUIREMENT)} / ${ARTIFACT_UNLOCK_REQUIREMENT})`;
+
+    const effect = document.createElement('p');
+    effect.textContent = artifact.effectText;
+
+    copy.append(title, condition, effect);
+    header.append(copy, icon);
+
+    const progress = document.createElement('div');
+    progress.className = 'artifact-progress';
+
+    const progressFill = document.createElement('span');
+    progressFill.style.width = `${progressRatio * 100}%`;
+    progress.appendChild(progressFill);
+
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.dataset.artifactId = artifact.id;
+    selectButton.disabled = !isUnlocked || isSelected;
+    selectButton.textContent = isSelected ? '선택 중' : (isUnlocked ? '선택' : '잠김');
+
+    card.append(header, progress, selectButton);
+    artifactList.appendChild(card);
+  });
+}
+
+function selectArtifact(artifactId) {
+  const artifact = ARTIFACTS.find((candidate) => candidate.id === artifactId);
+
+  if (!artifact || !isArtifactUnlocked(artifact)) return;
+
+  artifactProgress.selectedArtifactId = artifact.id;
+  saveArtifactProgress();
+  renderArtifacts();
+}
+
 function getSavedSoundSettings() {
   try {
     const savedSettings = localStorage.getItem(SOUND_SETTINGS_STORAGE_KEY);
     if (!savedSettings) {
       return {
         bgm: DEFAULT_BGM_VOLUME,
-        sfx: DEFAULT_SFX_VOLUME
+        sfx: DEFAULT_SFX_VOLUME,
+        muted: false
       };
     }
 
@@ -2100,12 +2521,14 @@ function getSavedSoundSettings() {
 
     return {
       bgm: normalizeVolumeValue(parsedSettings.bgm, DEFAULT_BGM_VOLUME),
-      sfx: normalizeVolumeValue(parsedSettings.sfx, DEFAULT_SFX_VOLUME)
+      sfx: normalizeVolumeValue(parsedSettings.sfx, DEFAULT_SFX_VOLUME),
+      muted: Boolean(parsedSettings.muted)
     };
   } catch (error) {
     return {
       bgm: DEFAULT_BGM_VOLUME,
-      sfx: DEFAULT_SFX_VOLUME
+      sfx: DEFAULT_SFX_VOLUME,
+      muted: false
     };
   }
 }
@@ -2129,10 +2552,10 @@ function saveSoundSettings() {
 }
 
 function applySoundSettings() {
-  backgroundMusic.volume = soundSettings.bgm / 100;
+  backgroundMusic.volume = soundSettings.muted ? 0 : soundSettings.bgm / 100;
 
   Object.values(sounds).forEach((sound) => {
-    sound.volume = soundSettings.sfx / 100;
+    sound.volume = soundSettings.muted ? 0 : soundSettings.sfx / 100;
   });
 
   syncSoundSettingsControls();
@@ -2143,12 +2566,25 @@ function syncSoundSettingsControls() {
   bgmVolumeValue.textContent = soundSettings.bgm;
   sfxVolumeInput.value = soundSettings.sfx;
   sfxVolumeValue.textContent = soundSettings.sfx;
+  muteToggleButton.textContent = soundSettings.muted ? '음소거 ON' : '음소거 OFF';
+  muteToggleButton.classList.toggle('is-muted', soundSettings.muted);
+  muteToggleButton.setAttribute('aria-pressed', String(soundSettings.muted));
 }
 
 function updateSoundSetting(settingName, value) {
   soundSettings = {
     ...soundSettings,
     [settingName]: normalizeVolumeValue(value, soundSettings[settingName])
+  };
+
+  applySoundSettings();
+  saveSoundSettings();
+}
+
+function toggleMuteSetting() {
+  soundSettings = {
+    ...soundSettings,
+    muted: !soundSettings.muted
   };
 
   applySoundSettings();
@@ -2532,7 +2968,34 @@ settingsButton.addEventListener('click', (event) => {
 
 menuSettingsButton.addEventListener('click', (event) => {
   event.stopPropagation();
+  hideArtifactLayer();
   toggleSettingsPanel();
+});
+
+menuArtifactsButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  openArtifactLayer();
+});
+
+closeArtifactButton.addEventListener('click', hideArtifactLayer);
+
+pauseArtifactButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  togglePauseArtifactEffect();
+});
+
+artifactLayer.addEventListener('click', (event) => {
+  if (event.target === artifactLayer) {
+    hideArtifactLayer();
+  }
+});
+
+artifactList.addEventListener('click', (event) => {
+  const selectButton = event.target.closest('button[data-artifact-id]');
+
+  if (!selectButton) return;
+
+  selectArtifact(selectButton.dataset.artifactId);
 });
 
 closeSettingsButton.addEventListener('click', closeSettingsPanel);
@@ -2551,6 +3014,7 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Escape') {
     closeSettingsPanel();
+    hideArtifactLayer();
   }
 });
 
@@ -2561,6 +3025,8 @@ bgmVolumeInput.addEventListener('input', (event) => {
 sfxVolumeInput.addEventListener('input', (event) => {
   updateSoundSetting('sfx', event.target.value);
 });
+
+muteToggleButton.addEventListener('click', toggleMuteSetting);
 
 abilityOptions.addEventListener('click', (event) => {
   const optionButton = event.target.closest('.ability-option');
